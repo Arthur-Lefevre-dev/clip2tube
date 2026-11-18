@@ -1,0 +1,36 @@
+Clip2Tube — installation (sans le dépôt Git)
+============================================
+
+CONTENU
+-------
+- Clip2Tube.exe          → lance l'application
+- Lancer_Clip2Tube.bat   → raccourci double-clic
+- ffmpeg\                → FFmpeg déjà inclus (montage vidéo)
+- config\                → vos clés API (à remplir une fois)
+- output\                → vidéos créées
+- data\                  → historique local
+- _internal\             → bibliothèques Python (ne pas supprimer)
+
+INSTALLATION
+------------
+1. Décompressez Clip2Tube-Portable.zip où vous voulez
+   (Bureau, Documents, Disque D: …)
+2. Double-cliquez sur Lancer_Clip2Tube.bat ou Clip2Tube.exe
+3. Ouvrez « Réglages » et collez vos clés Twitch (obligatoire)
+4. Cliquez « Détecter » pour FFmpeg (déjà dans le dossier ffmpeg\)
+
+INTERNET
+--------
+- Première utilisation des sous-titres : télécharge le modèle Whisper
+  (une seule fois, puis hors-ligne possible pour cette partie)
+- Recherche Twitch / publication YouTube : internet requis
+
+IMPORTANT
+---------
+- Ne séparez pas Clip2Tube.exe du dossier _internal
+- Vous pouvez déplacer TOUT le dossier Clip2Tube ailleurs
+- Aucun besoin d'installer Python
+
+DÉSINSTALLATION
+---------------
+Supprimez simplement le dossier Clip2Tube.

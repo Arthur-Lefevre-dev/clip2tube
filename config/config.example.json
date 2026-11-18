@@ -1,0 +1,49 @@
+{
+  "twitch": {
+    "client_id": "",
+    "client_secret": ""
+  },
+  "google": {
+    "client_id": "",
+    "client_secret": ""
+  },
+  "tiktok": {
+    "client_key": "",
+    "client_secret": ""
+  },
+  "ffmpeg_path": "",
+  "output_dir": "output",
+  "music_dir": "music",
+  "video_quality": "high",
+  "followed_streamers": [],
+  "auto_pilot": {
+    "enabled": false,
+    "interval_hours": 6,
+    "max_publications_per_day": 5
+  },
+  "defaults": {
+    "layout": "blur_center",
+    "facecam_region": {
+      "x": 0.70,
+      "y": 0.05,
+      "w": 0.28,
+      "h": 0.40,
+      "top_ratio": 0.33,
+      "width_ratio": 0.66
+    },
+    "max_clip_duration": 60,
+    "whisper_model": "small",
+    "whisper_language": "auto",
+    "whisper_use_gpu": false,
+    "subtitles_enabled": true,
+    "burn_title_overlay": false,
+    "title_font": "Arial",
+    "title_color": "#FFFFFF",
+    "subtitle_font": "Arial",
+    "subtitle_color": "#FFFFFF",
+    "music_volume": 0.15,
+    "youtube_title_template": "{titre_clip} #Shorts",
+    "youtube_description_template": "Clip de {streamer} - twitch.tv/{streamer}\n\n{hashtags}",
+    "tiktok_caption_template": "{titre_clip} | Clip de {streamer} {hashtags}"
+  }
+}

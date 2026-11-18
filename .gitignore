@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+dist/
+build/dist/
+*.spec
+
+# App runtime
+config/config.json
+data/
+output/
+temp/
+music/*
+!music/.gitkeep
+
+# Secrets / OAuth
+*.pickle
+client_secret*.json
+token*.json
+*.key
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.log

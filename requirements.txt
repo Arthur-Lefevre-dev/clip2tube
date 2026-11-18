@@ -1,0 +1,11 @@
+PySide6>=6.6.0
+requests>=2.31.0
+yt-dlp>=2024.1.0
+faster-whisper>=1.0.0
+# PyAV 19 removed metadata_errors; faster-whisper 1.2.x still passes it
+av>=11,<19
+google-api-python-client>=2.100.0
+google-auth-oauthlib>=1.1.0
+google-auth-httplib2>=0.2.0
+cryptography>=41.0.0
+pyinstaller>=6.0.0
