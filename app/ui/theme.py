@@ -200,7 +200,9 @@ QLabel#StreamerCount {{
 QLabel#StepBadge {{
     background-color: {COLORS["accent"]};
     color: white;
-    border-radius: 16px;
+    /* Qt draws QLabel radius only when a border is set */
+    border: 1px solid {COLORS["accent"]};
+    border-radius: 12px;
     padding: 6px 14px;
     font-weight: 700;
     font-size: 14px;

@@ -457,7 +457,9 @@ class HomePage(QWidget):
 
         badge = QLabel(f"Étape {step}")
         badge.setObjectName("StepBadge")
-        badge.setMaximumWidth(100)
+        badge.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        badge.setMaximumWidth(110)
         lay.addWidget(badge)
 
         t = QLabel(title)

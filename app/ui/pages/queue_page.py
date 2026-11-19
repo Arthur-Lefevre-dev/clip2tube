@@ -153,7 +153,9 @@ class QueuePage(QWidget):
 
         badge = QLabel("Étape 3")
         badge.setObjectName("StepBadge")
-        badge.setMaximumWidth(90)
+        badge.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        badge.setMaximumWidth(110)
         root.addWidget(badge)
 
         title = QLabel("Mes vidéos")
