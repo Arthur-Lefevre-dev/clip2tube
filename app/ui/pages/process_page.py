@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -824,9 +823,12 @@ class ProcessPage(QWidget):
             return
         path = self._last_output.resolve()
         try:
-            subprocess.run(
+            from app.utils.process import run_hidden
+
+            run_hidden(
                 ["explorer", "/select,", str(path)],
                 check=False,
+                timeout=15,
             )
         except Exception as exc:
             try:

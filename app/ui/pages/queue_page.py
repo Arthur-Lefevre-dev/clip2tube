@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -36,6 +35,68 @@ from app.utils.ffmpeg import find_ffmpeg, run_ffmpeg
 from app.utils.paths import get_app_root
 
 
+def _extract_thumb_pyav(video: Path, out: Path, time_sec: float = 0.8) -> bool:
+    """Grab one frame in-process (no console window)."""
+    try:
+        import av
+        from av.video.reformatter import VideoReformatter
+    except Exception:
+        return False
+    container = None
+    try:
+        container = av.open(str(video))
+        stream = container.streams.video[0]
+        stream.thread_type = "AUTO"
+        target = max(0.0, float(time_sec))
+        # Seek near the target; fall back to first decoded frame.
+        try:
+            container.seek(int(target * av.time_base), any_frame=False, backward=True)
+        except Exception:
+            pass
+        reformatter = VideoReformatter()
+        for frame in container.decode(video=0):
+            if frame.time is not None and frame.time < target - 0.05:
+                continue
+            rgb = reformatter.reformat(frame, format="rgb24")
+            img = rgb.to_image()
+            out.parent.mkdir(parents=True, exist_ok=True)
+            img.save(str(out), format="JPEG", quality=85)
+            return out.exists() and out.stat().st_size > 0
+        return False
+    except Exception:
+        return False
+    finally:
+        if container is not None:
+            try:
+                container.close()
+            except Exception:
+                pass
+
+
+def _extract_thumb_ffmpeg(video: Path, out: Path, ffmpeg_path: str = "") -> bool:
+    """Fallback: ffmpeg CLI (console hidden via run_hidden)."""
+    binary = find_ffmpeg(ffmpeg_path)
+    if not binary:
+        return False
+    result = run_ffmpeg(
+        [
+            "-ss",
+            "0.8",
+            "-i",
+            str(video),
+            "-frames:v",
+            "1",
+            "-q:v",
+            "4",
+            "-y",
+            str(out),
+        ],
+        ffmpeg_path=binary,
+        timeout=60,
+    )
+    return result.returncode == 0 and out.exists() and out.stat().st_size > 0
+
+
 class _ThumbWorker(QThread):
     """Extract a JPEG frame from a finished vertical video."""
 
@@ -55,27 +116,11 @@ class _ThumbWorker(QThread):
             if out.exists() and out.stat().st_size > 0:
                 self.finished_ok.emit(self.job_id, str(out))
                 return
-            binary = find_ffmpeg(self.ffmpeg_path)
-            if not binary:
-                self.failed.emit(self.job_id, "ffmpeg missing")
-                return
-            result = run_ffmpeg(
-                [
-                    "-ss",
-                    "0.8",
-                    "-i",
-                    str(self.video),
-                    "-frames:v",
-                    "1",
-                    "-q:v",
-                    "4",
-                    "-y",
-                    str(out),
-                ],
-                ffmpeg_path=binary,
-                timeout=60,
-            )
-            if result.returncode != 0 or not out.exists():
+            # Prefer PyAV (in-process) so Windows never flashes a console.
+            ok = _extract_thumb_pyav(self.video, out)
+            if not ok:
+                ok = _extract_thumb_ffmpeg(self.video, out, self.ffmpeg_path)
+            if not ok:
                 self.failed.emit(self.job_id, "thumb failed")
                 return
             self.finished_ok.emit(self.job_id, str(out))
@@ -515,7 +560,14 @@ class QueuePage(QWidget):
             )
             return
         try:
-            subprocess.run(["explorer", "/select,", str(path.resolve())], check=False)
+            # os.startfile avoids spawning a console; explorer /select is optional.
+            from app.utils.process import run_hidden
+
+            run_hidden(
+                ["explorer", "/select,", str(path.resolve())],
+                check=False,
+                timeout=15,
+            )
         except Exception as exc:
             try:
                 os.startfile(str(path.parent))  # type: ignore[attr-defined]

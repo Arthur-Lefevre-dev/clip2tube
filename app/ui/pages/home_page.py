@@ -129,6 +129,8 @@ class HomePage(QWidget):
         try:
             from app.utils.gpu import detect_gpu, resolve_whisper_device
 
+            # Avoid a stale first probe (HIP/ROCm libs may load late).
+            detect_gpu.cache_clear()
             info = detect_gpu()
             device, _ctype, reason = resolve_whisper_device(use_gpu=True)
             gpu_ok = device == "cuda"
@@ -138,7 +140,11 @@ class HomePage(QWidget):
             elif info.vendor == "nvidia" and gpu_ok:
                 detail = f"Sous-titres accélérés (NVIDIA · {name})."
             elif info.vendor == "amd":
-                detail = f"{name} détectée — sous-titres sur le processeur (plus lent)."
+                detail = (
+                    f"{name} détectée — Whisper utilise CTranslate2, "
+                    "pas PyTorch. Lancez scripts/setup_amd_rocm.ps1 "
+                    "pour activer le GPU (sinon CPU)."
+                )
             elif info.vendor == "nvidia":
                 detail = f"{name} détectée — CUDA manquant, sous-titres sur le processeur."
             else:

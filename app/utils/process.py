@@ -6,6 +6,9 @@ import os
 import subprocess
 from typing import Any, Optional, Sequence
 
+# CREATE_NO_WINDOW = 0x08000000 — hide console for console-subsystem children
+_CREATE_NO_WINDOW = 0x08000000
+
 
 def windows_hidden_kwargs() -> dict[str, Any]:
     """
@@ -19,12 +22,39 @@ def windows_hidden_kwargs() -> dict[str, Any]:
     startupinfo = subprocess.STARTUPINFO()
     startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     startupinfo.wShowWindow = subprocess.SW_HIDE
-    flags = 0
-    flags |= getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    flags = int(getattr(subprocess, "CREATE_NO_WINDOW", _CREATE_NO_WINDOW))
     return {
         "startupinfo": startupinfo,
         "creationflags": flags,
     }
+
+
+def patch_subprocess_no_window() -> None:
+    """
+    Globally force hidden consoles on every subprocess.Popen (yt-dlp, libs…).
+    Safe to call multiple times.
+    """
+    if os.name != "nt":
+        return
+    if getattr(subprocess, "_clip2tube_hidden_patched", False):
+        return
+    hidden = windows_hidden_kwargs()
+    if not hidden:
+        return
+    original_popen = subprocess.Popen
+
+    def _popen(*args, **kwargs):  # type: ignore[no-untyped-def]
+        for key, value in hidden.items():
+            if key == "creationflags":
+                kwargs["creationflags"] = int(kwargs.get("creationflags", 0)) | int(
+                    value
+                )
+            else:
+                kwargs.setdefault(key, value)
+        return original_popen(*args, **kwargs)
+
+    subprocess.Popen = _popen  # type: ignore[misc]
+    subprocess._clip2tube_hidden_patched = True  # type: ignore[attr-defined]
 
 
 def run_hidden(
@@ -37,6 +67,7 @@ def run_hidden(
     env: Optional[dict[str, str]] = None,
 ) -> subprocess.CompletedProcess:
     """subprocess.run with stdout/stderr captured and no visible console."""
+    patch_subprocess_no_window()
     kwargs: dict[str, Any] = {
         "args": list(cmd),
         "capture_output": True,
@@ -45,6 +76,7 @@ def run_hidden(
         "check": check,
         "cwd": cwd,
         "env": env,
+        "stdin": subprocess.DEVNULL,
     }
     kwargs.update(windows_hidden_kwargs())
     return subprocess.run(**kwargs)

@@ -44,9 +44,9 @@ from app.utils.paths import ensure_dirs
 def _silence_child_consoles() -> None:
     """Prevent brief black console popups from ffmpeg / yt-dlp on Windows."""
     try:
-        from app.services.downloader import _patch_subprocess_no_window
+        from app.utils.process import patch_subprocess_no_window
 
-        _patch_subprocess_no_window()
+        patch_subprocess_no_window()
     except Exception:
         pass
 
