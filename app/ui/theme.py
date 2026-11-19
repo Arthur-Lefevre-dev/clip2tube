@@ -413,6 +413,91 @@ QListWidget#StreamerList::item:selected {{
     color: {COLORS["text_muted"]};
 }}
 
+QListWidget#VideoJobList {{
+    background-color: {COLORS["bg"]};
+    border: 1px solid {COLORS["border"]};
+    border-radius: 16px;
+    padding: 10px;
+}}
+
+QListWidget#VideoJobList::item {{
+    background-color: transparent;
+    border: none;
+    margin: 0 0 12px 0;
+    padding: 0;
+}}
+
+QListWidget#VideoJobList::item:selected {{
+    background-color: transparent;
+}}
+
+#VideoJobRow {{
+    background-color: {COLORS["surface"]};
+    border: 1px solid {COLORS["border"]};
+    border-radius: 14px;
+}}
+
+#VideoJobRow:hover {{
+    border-color: {COLORS["accent_hover"]};
+}}
+
+#VideoJobRow[selected="true"] {{
+    border: 2px solid {COLORS["accent"]};
+    background-color: {COLORS["nav_active"]};
+}}
+
+#VideoJobThumb {{
+    background-color: {COLORS["surface_alt"]};
+    border-radius: 8px;
+    color: {COLORS["text_muted"]};
+    font-size: 18px;
+}}
+
+#VideoJobTitle {{
+    font-size: 15px;
+    font-weight: 760;
+    color: {COLORS["text"]};
+}}
+
+#VideoJobMeta {{
+    font-size: 13px;
+    color: {COLORS["text_muted"]};
+}}
+
+#VideoJobError {{
+    font-size: 12px;
+    color: {COLORS["danger"]};
+}}
+
+#VideoJobBadge {{
+    font-size: 11px;
+    font-weight: 800;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background-color: {COLORS["border"]};
+    color: {COLORS["text"]};
+}}
+
+#VideoJobBadge[kind="ok"] {{
+    background-color: {COLORS["success"]};
+    color: #0b1410;
+}}
+
+#VideoJobBadge[kind="error"] {{
+    background-color: {COLORS["danger"]};
+    color: white;
+}}
+
+#VideoJobBadge[kind="busy"] {{
+    background-color: {COLORS["warning"]};
+    color: #1a1200;
+}}
+
+#VideoJobBadge[kind="idle"] {{
+    background-color: {COLORS["surface_alt"]};
+    color: {COLORS["text_muted"]};
+}}
+
 #PlaceholderCard {{
     background-color: {COLORS["surface"]};
     border: 1px dashed {COLORS["border"]};

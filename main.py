@@ -8,6 +8,15 @@ from pathlib import Path
 
 # Avoid Qt plugin issues on some Windows setups
 os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "1")
+# Quiet Qt Multimedia / FFmpeg backend chatter (AV1 MFT probe, Input #0 dumps…)
+os.environ.setdefault(
+    "QT_LOGGING_RULES",
+    "qt.multimedia.ffmpeg.debug=false;qt.multimedia.ffmpeg.warning=false;"
+    "qt.multimedia.*=false",
+)
+# Lower libav log noise when Qt's FFmpeg backend probes files
+os.environ.setdefault("AV_LOG_FORCE_NOCOLOR", "1")
+os.environ.setdefault("FFREPORT", "")
 
 # When frozen by PyInstaller, help Qt find its plugins
 if getattr(sys, "frozen", False):
@@ -23,13 +32,40 @@ if getattr(sys, "frozen", False):
 
 
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, qInstallMessageHandler, QtMsgType
 
 from app.db import Database
 from app.ui.main_window import MainWindow, load_app_icon
 from app.ui.theme import apply_theme
 from app.utils.config import load_config
 from app.utils.paths import ensure_dirs
+
+
+def _qt_message_filter(mode, context, message: str) -> None:  # noqa: ARG001
+    """Drop noisy Multimedia/FFmpeg backend lines; keep real warnings/errors."""
+    text = message or ""
+    noisy = (
+        "qt.multimedia.ffmpeg",
+        "Using Qt multimedia with FFmpeg",
+        "could not find any MFT",
+        "could not create MFT",
+        "MFT name:",
+        "Input #0,",
+        "Metadata:",
+        "Stream #0:",
+        "Duration:",
+        "major_brand",
+        "handler_name",
+        "encoder         :",
+        "compatible_brands",
+    )
+    if any(token in text for token in noisy):
+        return
+    # Still print genuine critical/fatal Qt messages
+    if mode in (QtMsgType.QtCriticalMsg, QtMsgType.QtFatalMsg):
+        print(text, file=sys.stderr)
+    elif mode == QtMsgType.QtWarningMsg and "ffmpeg" not in text.lower():
+        print(text, file=sys.stderr)
 
 
 def main() -> int:
@@ -42,6 +78,7 @@ def main() -> int:
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
+    qInstallMessageHandler(_qt_message_filter)
     app = QApplication(sys.argv)
     app.setApplicationName("Clip2Tube")
     app.setOrganizationName("Clip2Tube")
