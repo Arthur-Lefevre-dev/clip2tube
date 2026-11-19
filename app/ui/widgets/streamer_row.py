@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QPixmap, QPainter, QColor, QPainterPath
+from PySide6.QtCore import Qt, QSize, Signal
+from PySide6.QtGui import QPixmap, QPainter, QColor, QPainterPath, QMouseEvent
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -18,6 +18,8 @@ AVATAR = 48
 class StreamerRowWidget(QWidget):
     """One followed-streamer row with profile image."""
 
+    clicked = Signal()
+
     def __init__(
         self,
         login: str,
@@ -29,7 +31,9 @@ class StreamerRowWidget(QWidget):
         self.setObjectName("StreamerRow")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.setMinimumHeight(64)
+        self.setMinimumHeight(68)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.set_selected(False)
 
         root = QHBoxLayout(self)
         root.setContentsMargins(12, 8, 12, 8)
@@ -57,7 +61,20 @@ class StreamerRowWidget(QWidget):
         root.addLayout(text, stretch=1)
 
     def sizeHint(self) -> QSize:
-        return QSize(320, 64)
+        return QSize(320, 68)
+
+    def set_selected(self, selected: bool) -> None:
+        self.setProperty("selected", "true" if selected else "false")
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self.update()
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()
+            event.accept()
+            return
+        super().mousePressEvent(event)
 
     def set_profile(self, display_name: str) -> None:
         if display_name:

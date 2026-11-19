@@ -411,6 +411,7 @@ class HomePage(QWidget):
             QAbstractItemView.SelectionMode.SingleSelection
         )
         self.streamers_list.itemDoubleClicked.connect(self._edit_streamer)
+        self.streamers_list.currentItemChanged.connect(self._on_streamer_selection)
         lay.addWidget(self.streamers_list, stretch=1)
 
         self.empty_streamers = QLabel(
@@ -505,15 +506,28 @@ class HomePage(QWidget):
             item.setData(Qt.ItemDataRole.UserRole, login)
             item.setToolTip(f"twitch.tv/{login}")
             row = StreamerRowWidget(login)
-            item.setSizeHint(row.sizeHint().expandedTo(QSize(0, 64)))
+            item.setSizeHint(row.sizeHint().expandedTo(QSize(0, 68)))
             self.streamers_list.addItem(item)
             self.streamers_list.setItemWidget(item, row)
             self._streamer_rows[login] = row
+            row.clicked.connect(
+                lambda it=item: self.streamers_list.setCurrentItem(it)
+            )
         n = len(streamers)
         self.streamer_count.setText(f"{n} streamer{'s' if n != 1 else ''}")
         self.empty_streamers.setVisible(n == 0)
         self.streamers_list.setVisible(n > 0)
+        self._on_streamer_selection(self.streamers_list.currentItem(), None)
         self._fetch_streamer_profiles(streamers)
+
+    def _on_streamer_selection(
+        self, current: QListWidgetItem | None, _previous: QListWidgetItem | None
+    ) -> None:
+        selected_login = (
+            str(current.data(Qt.ItemDataRole.UserRole) or "") if current else ""
+        )
+        for login, row in self._streamer_rows.items():
+            row.set_selected(login == selected_login)
 
     def _fetch_streamer_profiles(self, logins: list[str]) -> None:
         if not logins or not self._twitch:

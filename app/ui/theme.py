@@ -365,13 +365,13 @@ QListWidget#StreamerList {{
     background-color: {COLORS["bg"]};
     border: 1px solid {COLORS["border"]};
     border-radius: 14px;
-    padding: 8px;
+    padding: 10px;
 }}
 
 QListWidget#StreamerList::item {{
     background-color: transparent;
     border: none;
-    margin: 0 0 8px 0;
+    margin: 0 0 12px 0;
     padding: 0;
 }}
 
@@ -386,7 +386,12 @@ QListWidget#StreamerList::item:selected {{
 }}
 
 #StreamerRow:hover {{
-    border-color: {COLORS["accent"]};
+    border-color: {COLORS["accent_hover"]};
+}}
+
+#StreamerRow[selected="true"] {{
+    border: 2px solid {COLORS["accent"]};
+    background-color: {COLORS["nav_active"]};
 }}
 
 #StreamerAvatar {{
