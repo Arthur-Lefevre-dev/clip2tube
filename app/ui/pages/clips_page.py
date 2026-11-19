@@ -9,7 +9,6 @@ from PySide6.QtGui import QPixmap
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -24,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from app.models import Clip
 from app.ui.theme import style_spinbox
+from app.ui.widgets.menu_combo import MenuCombo
 from app.ui.workers import SearchClipsWorker
 
 
@@ -77,18 +77,18 @@ class ClipsPage(QWidget):
         self.query_edit.returnPressed.connect(self._on_search)
         row.addWidget(self.query_edit, stretch=3)
 
-        self.mode_combo = QComboBox()
+        self.mode_combo = MenuCombo()
         self.mode_combo.addItem("Streamer", "streamer")
         self.mode_combo.addItem("Jeu vidéo", "game")
-        self.mode_combo.setMinimumWidth(130)
+        self.mode_combo.setMinimumWidth(140)
         row.addWidget(self.mode_combo)
 
-        self.period_combo = QComboBox()
+        self.period_combo = MenuCombo()
         self.period_combo.addItem("Dernières 24 h", "24h")
         self.period_combo.addItem("7 derniers jours", "7d")
         self.period_combo.addItem("30 derniers jours", "30d")
         self.period_combo.setCurrentIndex(1)
-        self.period_combo.setMinimumWidth(160)
+        self.period_combo.setMinimumWidth(170)
         row.addWidget(self.period_combo)
         root.addLayout(row)
 

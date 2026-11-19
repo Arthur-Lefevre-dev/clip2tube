@@ -7,7 +7,6 @@ from pathlib import Path
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QFileDialog,
     QFormLayout,
     QGroupBox,
@@ -24,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.ui.theme import style_spinbox
+from app.ui.widgets.menu_combo import MenuCombo
 from app.utils.config import save_config
 from app.utils.ffmpeg import find_ffmpeg
 from app.utils.paths import get_app_root
@@ -135,8 +135,9 @@ class SettingsPage(QWidget):
         out_row.addWidget(browse_out)
         pf.addRow("Dossier sortie", out_row)
 
-        self.quality = QComboBox()
-        self.quality.addItems(["high", "medium", "low"])
+        self.quality = MenuCombo()
+        for q in ("high", "medium", "low"):
+            self.quality.addItem(q, q)
         pf.addRow("Qualité", self.quality)
         root.addWidget(paths)
 
@@ -178,8 +179,9 @@ class SettingsPage(QWidget):
         df.addRow("Police sous-titres", self.sub_font)
         df.addRow("Couleur sous-titres", self.sub_color)
 
-        self.whisper_model = QComboBox()
-        self.whisper_model.addItems(["tiny", "base", "small", "medium"])
+        self.whisper_model = MenuCombo()
+        for m in ("tiny", "base", "small", "medium"):
+            self.whisper_model.addItem(m, m)
         self.whisper_model.setCurrentText("small")
         self.whisper_lang = QLineEdit("auto")
         self.whisper_gpu = QCheckBox("Utiliser GPU si disponible")

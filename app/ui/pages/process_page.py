@@ -12,7 +12,6 @@ from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
@@ -34,6 +33,7 @@ from app.models.region import FacecamRegion
 from app.ui.theme import style_spinbox
 from app.ui.widgets.facecam_crop import FacecamCropDialog
 from app.ui.widgets.layout_picker import LayoutPicker
+from app.ui.widgets.menu_combo import MenuCombo
 from app.ui.workers import PrepareCropFrameWorker, ProcessJobWorker
 from app.utils.config import save_config
 from app.utils.paths import get_app_root
@@ -223,12 +223,14 @@ class ProcessPage(QWidget):
 
         self.facecam_size_label = QLabel("Taille de la caméra (style L)")
         face.addWidget(self.facecam_size_label)
-        self.facecam_size = QComboBox()
+        self.facecam_size = MenuCombo()
         self.facecam_size.addItem("Compacte", (0.28, 0.55))
         self.facecam_size.addItem("Équilibrée (recommandé)", (0.33, 0.66))
         self.facecam_size.addItem("Grande", (0.40, 0.75))
         self.facecam_size.setCurrentIndex(1)
-        self.facecam_size.currentIndexChanged.connect(self._on_facecam_size_changed)
+        self.facecam_size.currentIndexChanged.connect(
+            lambda _i: self._on_facecam_size_changed()
+        )
         face.addWidget(self.facecam_size)
         left.addWidget(self.facecam_box)
 

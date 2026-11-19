@@ -344,7 +344,7 @@ QPushButton#DangerButton {{
 }}
 
 /* Inputs */
-QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit, QPlainTextEdit {{
+QLineEdit, QSpinBox, QDoubleSpinBox, QTextEdit, QPlainTextEdit {{
     background-color: {COLORS["surface"]};
     border: 2px solid {COLORS["border"]};
     border-radius: 12px;
@@ -354,63 +354,38 @@ QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit, QPlainTextEdit {{
     min-height: 22px;
 }}
 
-QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QTextEdit:focus {{
+QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QTextEdit:focus {{
     border: 2px solid {COLORS["accent"]};
 }}
 
-QComboBox {{
-    padding-right: 36px;
-}}
-
-QComboBox::drop-down {{
-    subcontrol-origin: border;
-    subcontrol-position: center right;
-    width: 36px;
-    border: none;
-    border-left: 2px solid {COLORS["border"]};
-    background-color: {COLORS["surface_alt"]};
-    border-top-right-radius: 10px;
-    border-bottom-right-radius: 10px;
-}}
-
-QComboBox::drop-down:hover {{
-    background-color: {COLORS["border"]};
-}}
-
-QComboBox::down-arrow {{
-    image: url(__CHEVRON_DOWN__);
-    width: 12px;
-    height: 12px;
-}}
-
-/* Combo popup — same language as QMenu (rounded, inset items) */
-QComboBox QAbstractItemView {{
+/* MenuCombo = button + QMenu (reliable rounded popup, no Fusion bleed) */
+QPushButton#MenuCombo {{
     background-color: {COLORS["surface"]};
-    border: 2px solid {COLORS["border"]};
-    border-radius: 14px;
-    padding: 8px;
-    outline: 0;
-}}
-
-QComboBox QAbstractItemView::item {{
-    min-height: 30px;
-    margin: 3px 4px;
-    padding: 8px 14px;
-    border-radius: 8px;
     color: {COLORS["text"]};
-    background-color: transparent;
+    border: 2px solid {COLORS["border"]};
+    border-radius: 12px;
+    padding: 10px 36px 10px 14px;
+    text-align: left;
+    font-size: 15px;
+    font-weight: 600;
+    min-height: 22px;
 }}
 
-QComboBox QAbstractItemView::item:hover {{
+QPushButton#MenuCombo:hover {{
     background-color: {COLORS["surface_alt"]};
+    border-color: {COLORS["accent"]};
 }}
 
-QComboBox QAbstractItemView::item:selected {{
-    background-color: {COLORS["nav_active"]};
-    color: {COLORS["accent_hover"]};
+QPushButton#MenuCombo::menu-indicator {{
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
+    width: 16px;
+    height: 16px;
+    right: 12px;
+    image: url(__CHEVRON_DOWN__);
 }}
 
-/* Menus (File / Aide / tray) — inset items so fill never clips rounded frame */
+/* Menus (File / Aide / tray / MenuCombo) — inset items, no corner bleed */
 QMenu {{
     background-color: {COLORS["surface"]};
     border: 2px solid {COLORS["border"]};
@@ -616,32 +591,20 @@ def style_spinbox(spin) -> None:
 
 
 def style_combo(combo) -> None:
-    """Popup styled like QMenu: one rounded frame, transparent OS chrome."""
-    from PySide6.QtCore import Qt
-    from PySide6.QtWidgets import QFrame
-
-    view = combo.view()
-    view.setFrameShape(QFrame.Shape.NoFrame)
-    view.setSpacing(0)
-    original_show = combo.showPopup
-
-    def _show_popup() -> None:
-        original_show()
-        container = view.parentWidget()
-        if container is None:
-            return
-        # Hide the square OS frame; the item-view draws the rounded card
-        container.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        container.setStyleSheet("background: transparent; border: none;")
-
-    combo.showPopup = _show_popup  # type: ignore[method-assign]
+    """Legacy no-op — prefer MenuCombo (QMenu) for dropdowns."""
+    return
 
 
 def style_menu(menu) -> None:
-    """Prevent selected-item fill from bleeding past rounded menu corners."""
+    """Rounded menu without corner bleed on selected items."""
     from PySide6.QtCore import Qt
 
     menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+    menu.setWindowFlags(
+        menu.windowFlags()
+        | Qt.WindowType.FramelessWindowHint
+        | Qt.WindowType.NoDropShadowWindowHint
+    )
 
 
 def _qss_url(path) -> str:
