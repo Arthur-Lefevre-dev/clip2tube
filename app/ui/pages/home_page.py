@@ -455,12 +455,9 @@ class HomePage(QWidget):
         lay.setContentsMargins(18, 18, 18, 18)
         lay.setSpacing(10)
 
-        badge = QLabel(f"Étape {step}")
-        badge.setObjectName("StepBadge")
-        badge.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        badge.setMaximumWidth(110)
-        lay.addWidget(badge)
+        from app.ui.theme import make_step_badge
+
+        lay.addWidget(make_step_badge(f"Étape {step}"))
 
         t = QLabel(title)
         t.setObjectName("HomeCardTitle")

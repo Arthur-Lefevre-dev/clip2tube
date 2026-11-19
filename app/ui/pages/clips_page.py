@@ -57,12 +57,9 @@ class ClipsPage(QWidget):
         root.setContentsMargins(32, 28, 32, 28)
         root.setSpacing(14)
 
-        badge = QLabel("Étape 1")
-        badge.setObjectName("StepBadge")
-        badge.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        badge.setMaximumWidth(110)
-        root.addWidget(badge)
+        from app.ui.theme import make_step_badge
+
+        root.addWidget(make_step_badge("Étape 1"))
 
         title = QLabel("Trouver des clips")
         title.setObjectName("PageTitle")

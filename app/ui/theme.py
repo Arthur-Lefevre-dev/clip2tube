@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QFrame, QHBoxLayout, QLabel, QSizePolicy, QWidget
 
 COLORS = {
     "bg": "#12141a",
@@ -197,15 +198,19 @@ QLabel#StreamerCount {{
     padding: 4px 10px;
 }}
 
-QLabel#StepBadge {{
+/* Use QFrame — QLabel ignores border-radius for filled backgrounds. */
+QFrame#StepBadge {{
     background-color: {COLORS["accent"]};
-    color: white;
-    /* Qt draws QLabel radius only when a border is set */
-    border: 1px solid {COLORS["accent"]};
+    border: none;
     border-radius: 12px;
-    padding: 6px 14px;
+}}
+
+QFrame#StepBadge QLabel {{
+    background-color: transparent;
+    color: white;
     font-weight: 700;
     font-size: 14px;
+    padding: 6px 14px;
 }}
 
 #ProcessCard {{
@@ -924,6 +929,26 @@ def _stylesheet_with_assets() -> str:
         else:
             css = css.replace(f"image: url({token});", "/* asset missing */")
     return css
+
+
+def make_step_badge(text: str, parent: QWidget | None = None) -> QFrame:
+    """
+    Rounded purple « Étape N » chip.
+
+    QLabel alone cannot reliably paint border-radius; wrap in a styled QFrame.
+    """
+    frame = QFrame(parent)
+    frame.setObjectName("StepBadge")
+    frame.setFrameShape(QFrame.Shape.NoFrame)
+    frame.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+    frame.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+    lay = QHBoxLayout(frame)
+    lay.setContentsMargins(0, 0, 0, 0)
+    lay.setSpacing(0)
+    label = QLabel(text)
+    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    lay.addWidget(label)
+    return frame
 
 
 def apply_theme(app: QApplication) -> None:

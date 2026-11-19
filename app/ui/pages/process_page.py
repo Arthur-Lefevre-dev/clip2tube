@@ -133,12 +133,9 @@ class ProcessPage(QWidget):
         outer.setSpacing(14)
 
         # —— Header (stays visible, does not scroll away with left forms) ——
-        badge = QLabel("Étape 2")
-        badge.setObjectName("StepBadge")
-        badge.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        badge.setMaximumWidth(110)
-        outer.addWidget(badge)
+        from app.ui.theme import make_step_badge
+
+        outer.addWidget(make_step_badge("Étape 2"))
 
         title = QLabel("Créer ma vidéo")
         title.setObjectName("PageTitle")
