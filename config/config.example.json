@@ -38,7 +38,7 @@
     "max_clip_duration": 60,
     "whisper_model": "small",
     "whisper_language": "auto",
-    "whisper_use_gpu": false,
+    "whisper_use_gpu": true,
     "subtitles_enabled": true,
     "burn_title_overlay": false,
     "title_font": "Arial",

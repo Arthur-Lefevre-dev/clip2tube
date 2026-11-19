@@ -219,7 +219,7 @@ class PipelineService:
                     model_size=defaults.get("whisper_model", "small"),
                     font=defaults.get("subtitle_font", "Arial"),
                     color=defaults.get("subtitle_color", "#FFFFFF"),
-                    use_gpu=bool(defaults.get("whisper_use_gpu", False)),
+                    use_gpu=bool(defaults.get("whisper_use_gpu", True)),
                     on_progress=lambda m: log(m),
                 )
 

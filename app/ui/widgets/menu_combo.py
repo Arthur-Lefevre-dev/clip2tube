@@ -31,7 +31,11 @@ class MenuCombo(QPushButton):
         self._menu = QMenu(self)
         style_menu(self._menu)
         self.setMenu(self._menu)
-        self.setMinimumHeight(44)
+        self.setMinimumHeight(48)
+
+    def _display_text(self, text: str) -> str:
+        # Leading spaces: Qt often ignores left padding on QPushButton + menu
+        return f"  {text}" if text else text
 
     def addItem(self, text: str, userData: Any = None) -> None:
         idx = len(self._items)
@@ -64,6 +68,16 @@ class MenuCombo(QPushButton):
             return self._items[self._index][1]
         return None
 
+    def itemData(self, index: int) -> Any:
+        if 0 <= index < len(self._items):
+            return self._items[index][1]
+        return None
+
+    def itemText(self, index: int) -> str:
+        if 0 <= index < len(self._items):
+            return self._items[index][0]
+        return ""
+
     def findData(self, data: Any) -> int:
         for i, (_t, d) in enumerate(self._items):
             if d == data:
@@ -79,11 +93,12 @@ class MenuCombo(QPushButton):
     def setCurrentIndex(self, index: int) -> None:
         if index < 0 or index >= len(self._items):
             return
+        label = self._display_text(self._items[index][0])
         if index == self._index:
-            self.setText(self._items[index][0])
+            self.setText(label)
             return
         self._index = index
-        self.setText(self._items[index][0])
+        self.setText(label)
         self.currentIndexChanged.emit(index)
 
     def setCurrentText(self, text: str) -> None:

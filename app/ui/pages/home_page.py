@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QSize, QUrl
+from PySide6.QtGui import QPixmap
+from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QInputDialog,
     QLabel,
@@ -20,6 +24,8 @@ from PySide6.QtWidgets import (
 )
 
 from app.services.twitch import normalize_twitch_query
+from app.ui.widgets.streamer_row import StreamerRowWidget
+from app.ui.workers import FetchStreamerProfilesWorker
 from app.utils.config import save_config
 
 
@@ -43,6 +49,9 @@ class HomePage(QWidget):
         self._twitch = None
         self._youtube = None
         self._config = None
+        self._streamer_rows: dict[str, StreamerRowWidget] = {}
+        self._profile_worker: FetchStreamerProfilesWorker | None = None
+        self._net = QNetworkAccessManager(self)
         self._build()
 
     def bind(self, config, twitch, youtube) -> None:
@@ -64,35 +73,117 @@ class HomePage(QWidget):
         else:
             ffmpeg_ok = False
 
-        self.twitch_status.setText("Prêt ✓" if twitch_ok else "À configurer")
-        self.twitch_status.setObjectName("StatusOk" if twitch_ok else "StatusKo")
-        self._repolish(self.twitch_status)
-
-        self.ffmpeg_status.setText("Trouvé ✓" if ffmpeg_ok else "À installer / indiquer")
-        self.ffmpeg_status.setObjectName("StatusOk" if ffmpeg_ok else "StatusKo")
-        self._repolish(self.ffmpeg_status)
-        self.ffmpeg_detail.setText(ffmpeg_hint or "Nécessaire pour créer les vidéos")
-
-        self.youtube_status.setText(
-            "Connecté ✓" if youtube_ok else "Optionnel pour l’instant"
+        self._set_setup_tile(
+            "twitch",
+            ok=twitch_ok,
+            badge="OK" if twitch_ok else "À faire",
+            detail=(
+                "Vos clés sont enregistrées."
+                if twitch_ok
+                else "Ouvrez les réglages et collez Client ID + Secret."
+            ),
         )
-        self.youtube_status.setObjectName("StatusOk" if youtube_ok else "StatusKo")
-        self._repolish(self.youtube_status)
+        self._set_setup_tile(
+            "ffmpeg",
+            ok=ffmpeg_ok,
+            badge="OK" if ffmpeg_ok else "À faire",
+            detail=(
+                "Prêt pour monter les vidéos."
+                if ffmpeg_ok
+                else "Dans Réglages, cliquez « Détecter » FFmpeg."
+            ),
+            tip=ffmpeg_hint,
+        )
+        self._set_setup_tile(
+            "youtube",
+            ok=youtube_ok,
+            badge="OK" if youtube_ok else "Plus tard",
+            optional=not youtube_ok,
+            detail=(
+                "Compte relié — publication possible."
+                if youtube_ok
+                else "Pas obligatoire pour créer une vidéo."
+            ),
+        )
+        self._refresh_gpu_status()
 
         if twitch_ok and ffmpeg_ok:
+            self.setup_summary.setText("Tout est prêt pour chercher des clips.")
             self.hero_hint.setText(
                 "Ajoutez vos streamers ci-dessous, puis cherchez des clips."
             )
         elif not twitch_ok:
+            self.setup_summary.setText("Il manque encore les clés Twitch.")
             self.hero_hint.setText(
                 "Commencez par ouvrir Réglages et coller vos clés Twitch (2 cases)."
             )
         else:
+            self.setup_summary.setText("Il manque encore FFmpeg.")
             self.hero_hint.setText(
                 "Il manque FFmpeg : dans Réglages, cliquez « Détecter » ou indiquez le chemin."
             )
 
         self._reload_streamers_list()
+
+    def _refresh_gpu_status(self) -> None:
+        try:
+            from app.utils.gpu import detect_gpu, resolve_whisper_device
+
+            info = detect_gpu()
+            device, _ctype, reason = resolve_whisper_device(use_gpu=True)
+            gpu_ok = device == "cuda"
+            name = (info.name or "").strip() or "carte graphique"
+            if info.vendor == "amd" and gpu_ok:
+                detail = f"Sous-titres accélérés (AMD · {name})."
+            elif info.vendor == "nvidia" and gpu_ok:
+                detail = f"Sous-titres accélérés (NVIDIA · {name})."
+            elif info.vendor == "amd":
+                detail = f"{name} détectée — sous-titres sur le processeur (plus lent)."
+            elif info.vendor == "nvidia":
+                detail = f"{name} détectée — CUDA manquant, sous-titres sur le processeur."
+            else:
+                detail = "Pas de carte utilisable — sous-titres sur le processeur."
+            self._set_setup_tile(
+                "gpu",
+                ok=gpu_ok,
+                badge="Rapide" if gpu_ok else "Lent",
+                optional=not gpu_ok,
+                detail=detail,
+                tip=reason,
+            )
+        except Exception as exc:
+            self._set_setup_tile(
+                "gpu",
+                ok=False,
+                badge="?",
+                optional=True,
+                detail="Détection GPU impossible.",
+                tip=str(exc),
+            )
+
+    def _set_setup_tile(
+        self,
+        key: str,
+        *,
+        ok: bool,
+        badge: str,
+        detail: str,
+        optional: bool = False,
+        tip: str = "",
+    ) -> None:
+        tile = getattr(self, f"tile_{key}")
+        badge_lbl = getattr(self, f"tile_{key}_badge")
+        detail_lbl = getattr(self, f"tile_{key}_detail")
+        state = "ok" if ok else ("optional" if optional else "todo")
+        tile.setProperty("state", state)
+        self._repolish(tile)
+        badge_lbl.setText(badge)
+        badge_lbl.setProperty("state", state)
+        self._repolish(badge_lbl)
+        detail_lbl.setText(detail)
+        if tip:
+            tile.setToolTip(tip)
+            detail_lbl.setToolTip(tip)
 
     def _repolish(self, widget) -> None:
         widget.style().unpolish(widget)
@@ -192,27 +283,84 @@ class HomePage(QWidget):
         check.setObjectName("HelpCard")
         check.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         lay = QVBoxLayout(check)
-        lay.setContentsMargins(18, 16, 18, 16)
-        lay.setSpacing(12)
+        lay.setContentsMargins(20, 18, 20, 18)
+        lay.setSpacing(14)
 
         head = QLabel("Avant de commencer")
         head.setObjectName("HomeSectionTitle")
         lay.addWidget(head)
 
-        lay.addLayout(self._status_row("1. Clés Twitch", "twitch_status"))
-        lay.addLayout(self._status_row("2. FFmpeg (outil vidéo)", "ffmpeg_status"))
-        self.ffmpeg_detail = QLabel("")
-        self.ffmpeg_detail.setObjectName("PageSubtitle")
-        self.ffmpeg_detail.setWordWrap(True)
-        lay.addWidget(self.ffmpeg_detail)
-        lay.addLayout(self._status_row("3. Compte YouTube", "youtube_status"))
+        self.setup_summary = QLabel("Vérification en cours…")
+        self.setup_summary.setObjectName("PageSubtitle")
+        self.setup_summary.setWordWrap(True)
+        lay.addWidget(self.setup_summary)
 
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 4, 0, 0)
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(12)
+
+        tiles = [
+            ("twitch", "1", "Twitch", "Pour chercher les clips"),
+            ("ffmpeg", "2", "Montage vidéo", "Outil FFmpeg"),
+            ("youtube", "3", "YouTube", "Pour publier (optionnel)"),
+            ("gpu", "4", "Sous-titres", "Carte graphique"),
+        ]
+        for i, (key, num, title, subtitle) in enumerate(tiles):
+            tile = self._make_setup_tile(key, num, title, subtitle)
+            grid.addWidget(tile, i // 2, i % 2)
+
+        lay.addLayout(grid)
         lay.addStretch(1)
+
         settings_btn = QPushButton("Ouvrir les réglages")
         settings_btn.setObjectName("SecondaryButton")
         settings_btn.clicked.connect(lambda: self.go_to.emit("settings"))
         lay.addWidget(settings_btn)
         return check
+
+    def _make_setup_tile(
+        self, key: str, num: str, title: str, subtitle: str
+    ) -> QFrame:
+        tile = QFrame()
+        tile.setObjectName("SetupTile")
+        tile.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        tile.setProperty("state", "todo")
+        tile.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        tile.setMinimumHeight(118)
+        box = QVBoxLayout(tile)
+        box.setContentsMargins(14, 12, 14, 12)
+        box.setSpacing(6)
+
+        top = QHBoxLayout()
+        top.setSpacing(8)
+        step = QLabel(num)
+        step.setObjectName("SetupStep")
+        top.addWidget(step)
+        name = QLabel(title)
+        name.setObjectName("SetupTitle")
+        top.addWidget(name)
+        top.addStretch(1)
+        badge = QLabel("…")
+        badge.setObjectName("SetupBadge")
+        top.addWidget(badge)
+        box.addLayout(top)
+
+        sub = QLabel(subtitle)
+        sub.setObjectName("SetupSubtitle")
+        sub.setWordWrap(True)
+        box.addWidget(sub)
+
+        detail = QLabel("")
+        detail.setObjectName("SetupDetail")
+        detail.setWordWrap(True)
+        box.addWidget(detail)
+        box.addStretch(1)
+
+        setattr(self, f"tile_{key}", tile)
+        setattr(self, f"tile_{key}_badge", badge)
+        setattr(self, f"tile_{key}_detail", detail)
+        return tile
 
     def _build_streamers_card(self) -> QFrame:
         card = QFrame()
@@ -233,8 +381,8 @@ class HomePage(QWidget):
         lay.addLayout(head_row)
 
         tip = QLabel(
-            "Liste utilisée par le mode automatique. "
-            "Pseudo (xqc) ou lien de chaîne (twitch.tv/xqc) — les deux marchent."
+            "Ces chaînes sont utilisées pour chercher des clips automatiquement.\n"
+            "Ajoutez un pseudo (xqc) ou un lien (twitch.tv/xqc)."
         )
         tip.setObjectName("PageSubtitle")
         tip.setWordWrap(True)
@@ -252,12 +400,22 @@ class HomePage(QWidget):
         lay.addLayout(add_row)
 
         self.streamers_list = QListWidget()
-        self.streamers_list.setMinimumHeight(160)
+        self.streamers_list.setObjectName("StreamerList")
+        self.streamers_list.setMinimumHeight(180)
         self.streamers_list.setAlternatingRowColors(False)
+        self.streamers_list.setSpacing(0)
+        self.streamers_list.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.streamers_list.setSelectionMode(
+            QAbstractItemView.SelectionMode.SingleSelection
+        )
         self.streamers_list.itemDoubleClicked.connect(self._edit_streamer)
         lay.addWidget(self.streamers_list, stretch=1)
 
-        self.empty_streamers = QLabel("Aucun streamer pour l’instant — ajoutez-en un ci-dessus.")
+        self.empty_streamers = QLabel(
+            "Aucun streamer pour l’instant.\nAjoutez-en un ci-dessus pour commencer."
+        )
         self.empty_streamers.setObjectName("EmptyHint")
         self.empty_streamers.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty_streamers.setWordWrap(True)
@@ -280,17 +438,6 @@ class HomePage(QWidget):
         actions.addStretch(1)
         lay.addLayout(actions)
         return card
-
-    def _status_row(self, label: str, attr: str) -> QHBoxLayout:
-        row = QHBoxLayout()
-        name = QLabel(label)
-        name.setObjectName("PageSubtitle")
-        status = QLabel("…")
-        setattr(self, attr, status)
-        row.addWidget(name)
-        row.addStretch(1)
-        row.addWidget(status)
-        return row
 
     def _action_card(
         self, step: str, title: str, body: str, cta: str, nav_id: str
@@ -348,15 +495,57 @@ class HomePage(QWidget):
 
     def _reload_streamers_list(self) -> None:
         streamers = self._current_streamers()
+        self._streamer_rows.clear()
         self.streamers_list.clear()
         for login in streamers:
-            item = QListWidgetItem(login)
+            item = QListWidgetItem(self.streamers_list)
+            item.setFlags(
+                Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
+            )
+            item.setData(Qt.ItemDataRole.UserRole, login)
             item.setToolTip(f"twitch.tv/{login}")
+            row = StreamerRowWidget(login)
+            item.setSizeHint(row.sizeHint().expandedTo(QSize(0, 64)))
             self.streamers_list.addItem(item)
+            self.streamers_list.setItemWidget(item, row)
+            self._streamer_rows[login] = row
         n = len(streamers)
         self.streamer_count.setText(f"{n} streamer{'s' if n != 1 else ''}")
         self.empty_streamers.setVisible(n == 0)
         self.streamers_list.setVisible(n > 0)
+        self._fetch_streamer_profiles(streamers)
+
+    def _fetch_streamer_profiles(self, logins: list[str]) -> None:
+        if not logins or not self._twitch:
+            return
+        if self._profile_worker and self._profile_worker.isRunning():
+            return
+        self._profile_worker = FetchStreamerProfilesWorker(self._twitch, logins)
+        self._profile_worker.finished_ok.connect(self._on_profiles_ready)
+        self._profile_worker.start()
+
+    def _on_profiles_ready(self, profiles: dict) -> None:
+        for login, info in (profiles or {}).items():
+            row = self._streamer_rows.get(login)
+            if not row:
+                continue
+            display = str(info.get("display_name") or login)
+            row.set_profile(display)
+            url = str(info.get("profile_image_url") or "")
+            if url:
+                self._load_avatar(row, url)
+
+    def _load_avatar(self, row: StreamerRowWidget, url: str) -> None:
+        reply = self._net.get(QNetworkRequest(QUrl(url)))
+
+        def done() -> None:
+            data = reply.readAll()
+            pix = QPixmap()
+            if pix.loadFromData(data):
+                row.set_avatar(pix)
+            reply.deleteLater()
+
+        reply.finished.connect(done)
 
     def _add_streamer(self) -> None:
         login = _normalize_login(self.streamer_input.text())
@@ -381,7 +570,8 @@ class HomePage(QWidget):
         item = self.streamers_list.currentItem()
         if not item:
             return None
-        return item.text().strip()
+        login = item.data(Qt.ItemDataRole.UserRole)
+        return str(login).strip() if login else None
 
     def _edit_selected(self) -> None:
         login = self._selected_login()
@@ -393,8 +583,10 @@ class HomePage(QWidget):
         self._edit_streamer_login(login)
 
     def _edit_streamer(self, item: QListWidgetItem) -> None:
-        if item:
-            self._edit_streamer_login(item.text().strip())
+        if not item:
+            return
+        login = item.data(Qt.ItemDataRole.UserRole) or item.text()
+        self._edit_streamer_login(str(login).strip())
 
     def _edit_streamer_login(self, old: str) -> None:
         new_raw, ok = QInputDialog.getText(

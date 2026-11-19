@@ -189,9 +189,10 @@ class FacecamCropDialog(QDialog):
         frame_path: Path,
         initial: FacecamRegion | None = None,
         parent=None,
+        title: str = "Zone cam streamer",
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Zone cam streamer")
+        self.setWindowTitle(title)
         self.resize(900, 560)
         self._result = (initial or FacecamRegion()).clamped()
 
@@ -249,8 +250,11 @@ class FacecamCropDialog(QDialog):
         frame_path: Path,
         initial: FacecamRegion | None = None,
         parent=None,
+        title: str = "Zone cam streamer",
     ) -> FacecamRegion | None:
-        dlg = FacecamCropDialog(frame_path, initial=initial, parent=parent)
+        dlg = FacecamCropDialog(
+            frame_path, initial=initial, parent=parent, title=title
+        )
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return None
         return dlg.selected_region()

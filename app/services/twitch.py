@@ -95,7 +95,9 @@ class TwitchService:
             "Authorization": f"Bearer {self._access_token}",
         }
 
-    def _get(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
+    def _get(
+        self, path: str, params: dict[str, Any] | list[tuple[str, str]]
+    ) -> dict[str, Any]:
         resp = self._session.get(
             f"{HELIX}{path}", headers=self._headers(), params=params, timeout=30
         )
@@ -112,6 +114,25 @@ class TwitchService:
         data = self._get("/users", {"login": login.lower().strip()})
         users = data.get("data") or []
         return users[0] if users else None
+
+    def get_users_by_logins(self, logins: list[str]) -> dict[str, dict[str, Any]]:
+        """
+        Resolve multiple logins → Helix user objects (keyed by lowercase login).
+
+        Helix accepts up to 100 ``login`` query params per request.
+        """
+        cleaned = [str(x).lower().strip() for x in logins if str(x).strip()]
+        cleaned = list(dict.fromkeys(cleaned))
+        out: dict[str, dict[str, Any]] = {}
+        for i in range(0, len(cleaned), 100):
+            chunk = cleaned[i : i + 100]
+            # requests encodes repeated keys as login=a&login=b
+            data = self._get("/users", [("login", login) for login in chunk])
+            for user in data.get("data") or []:
+                key = str(user.get("login") or "").lower()
+                if key:
+                    out[key] = user
+        return out
 
     def get_game_by_name(self, name: str) -> Optional[dict[str, Any]]:
         data = self._get("/games", {"name": name.strip()})

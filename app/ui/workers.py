@@ -251,3 +251,31 @@ class PrepareCropFrameWorker(QThread):
             self.finished_ok.emit(str(frame))
         except Exception as exc:
             self.failed.emit(str(exc))
+
+
+class FetchStreamerProfilesWorker(QThread):
+    """Resolve Twitch display names + avatar URLs for followed logins."""
+
+    finished_ok = Signal(dict)  # login → {display_name, profile_image_url}
+    failed = Signal(str)
+
+    def __init__(self, twitch_service: Any, logins: list[str], parent=None) -> None:
+        super().__init__(parent)
+        self.twitch = twitch_service
+        self.logins = list(logins)
+
+    def run(self) -> None:
+        try:
+            if not self.twitch or not self.twitch.is_configured():
+                self.finished_ok.emit({})
+                return
+            users = self.twitch.get_users_by_logins(self.logins)
+            payload: dict[str, dict[str, str]] = {}
+            for login, user in users.items():
+                payload[login] = {
+                    "display_name": str(user.get("display_name") or login),
+                    "profile_image_url": str(user.get("profile_image_url") or ""),
+                }
+            self.finished_ok.emit(payload)
+        except Exception as exc:
+            self.failed.emit(str(exc))

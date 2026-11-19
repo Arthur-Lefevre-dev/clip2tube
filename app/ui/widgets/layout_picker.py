@@ -1,68 +1,72 @@
-"""Illustrated layout style picker."""
+"""Illustrated layout style picker — equal square tiles in a row."""
 
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal, QSize
 from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QPen
-from PySide6.QtWidgets import QButtonGroup, QGridLayout, QToolButton, QWidget
+from PySide6.QtWidgets import QButtonGroup, QHBoxLayout, QSizePolicy, QToolButton, QWidget
 
 from app.models import LayoutType
 from app.utils.paths import get_asset_path
 
+# Equal square tiles side by side
+TILE = 128
+ICON_W = 48
+ICON_H = 80
 
 _LAYOUTS: list[tuple[str, str, str]] = [
     (
         LayoutType.BLUR_CENTER.value,
-        "Fond flou\nJeu centré\n★ recommandé",
+        "Fond flou\n★ reco",
         "blur_center.png",
     ),
     (
         LayoutType.FACECAM_SPLIT.value,
-        "Webcam\nCam en haut\nà gauche",
+        "Webcam\nhaut gauche",
         "facecam_split.png",
     ),
     (
         LayoutType.FACECAM_QUARTER.value,
-        "1/4 cam\n3/4 vidéo\nempilé",
+        "1/4 cam\n3/4 vidéo",
         "facecam_quarter.png",
     ),
     (
         LayoutType.LETTERBOX.value,
-        "Barres\nLetterbox\nclassique",
+        "Barres\nletterbox",
         "letterbox.png",
     ),
 ]
 
 
 def _fallback_icon(kind: str) -> QPixmap:
-    pix = QPixmap(96, 160)
+    pix = QPixmap(ICON_W, ICON_H)
     pix.fill(Qt.GlobalColor.transparent)
     p = QPainter(pix)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
     p.setBrush(QColor("#1a1e28"))
     p.setPen(QPen(QColor("#343b4d"), 2))
-    p.drawRoundedRect(4, 4, 88, 152, 14, 14)
+    p.drawRoundedRect(2, 2, ICON_W - 4, ICON_H - 4, 10, 10)
     if kind == LayoutType.BLUR_CENTER.value:
         p.setBrush(QColor("#3c3250"))
-        p.drawRoundedRect(10, 10, 76, 140, 10, 10)
+        p.drawRoundedRect(6, 6, ICON_W - 12, ICON_H - 12, 8, 8)
         p.setBrush(QColor("#7864a0"))
-        p.drawRoundedRect(20, 48, 56, 64, 8, 8)
+        p.drawRoundedRect(12, 24, ICON_W - 24, 32, 6, 6)
     elif kind == LayoutType.FACECAM_SPLIT.value:
         p.setBrush(QColor("#28465a"))
-        p.drawRoundedRect(10, 10, 76, 140, 10, 10)
+        p.drawRoundedRect(6, 6, ICON_W - 12, ICON_H - 12, 8, 8)
         p.setBrush(QColor("#e84d8a"))
-        p.drawRoundedRect(14, 14, 36, 44, 8, 8)
+        p.drawRoundedRect(8, 8, 20, 24, 5, 5)
     elif kind == LayoutType.FACECAM_QUARTER.value:
         p.setBrush(QColor("#e84d8a"))
-        p.drawRoundedRect(10, 10, 76, 36, 6, 6)
+        p.drawRoundedRect(6, 6, ICON_W - 12, 18, 4, 4)
         p.setBrush(QColor("#28465a"))
-        p.drawRoundedRect(10, 52, 76, 98, 6, 6)
+        p.drawRoundedRect(6, 28, ICON_W - 12, ICON_H - 36, 4, 4)
     else:
         p.setBrush(QColor("#0a0c10"))
-        p.drawRect(10, 10, 76, 28)
-        p.drawRect(10, 122, 76, 28)
+        p.drawRect(6, 6, ICON_W - 12, 12)
+        p.drawRect(6, ICON_H - 18, ICON_W - 12, 12)
         p.setBrush(QColor("#5a6e8c"))
-        p.drawRoundedRect(12, 42, 72, 76, 4, 4)
+        p.drawRoundedRect(8, 22, ICON_W - 16, 36, 3, 3)
     p.end()
     return pix
 
@@ -70,14 +74,19 @@ def _fallback_icon(kind: str) -> QPixmap:
 def _load_icon(value: str, icon_name: str) -> QIcon:
     path = get_asset_path("layouts", icon_name)
     if path.is_file():
-        pix = QPixmap(str(path))
+        pix = QPixmap(str(path)).scaled(
+            ICON_W,
+            ICON_H,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
     else:
         pix = _fallback_icon(value)
     return QIcon(pix)
 
 
 class LayoutPicker(QWidget):
-    """Illustrated toggle buttons for vertical layout styles."""
+    """Equal square toggle tiles for vertical layout styles."""
 
     layout_changed = Signal(str)
 
@@ -90,25 +99,28 @@ class LayoutPicker(QWidget):
         self._build()
 
     def _build(self) -> None:
-        grid = QGridLayout(self)
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setSpacing(10)
+        row = QHBoxLayout(self)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(10)
+        row.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
-        for i, (value, label, icon_name) in enumerate(_LAYOUTS):
+        for value, label, icon_name in _LAYOUTS:
             btn = QToolButton()
             btn.setCheckable(True)
             btn.setObjectName("LayoutChoice")
             btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextUnderIcon)
             btn.setIcon(_load_icon(value, icon_name))
-            btn.setIconSize(QSize(64, 108))
+            btn.setIconSize(QSize(ICON_W, ICON_H))
             btn.setText(label)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setMinimumSize(110, 190)
+            btn.setFixedSize(TILE, TILE)
+            btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
             btn.clicked.connect(lambda checked=False, v=value: self._on_click(v))
             self._group.addButton(btn)
             self._buttons[value] = btn
-            grid.addWidget(btn, i // 2, i % 2)
+            row.addWidget(btn)
 
+        row.addStretch(1)
         self.set_layout(LayoutType.BLUR_CENTER.value)
 
     def _on_click(self, value: str) -> None:

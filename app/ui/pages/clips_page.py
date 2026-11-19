@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt, Signal, QSize, QUrl
 from PySide6.QtGui import QPixmap
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QCheckBox,
     QHBoxLayout,
     QLabel,
@@ -23,6 +24,7 @@ from PySide6.QtWidgets import (
 
 from app.models import Clip
 from app.ui.theme import style_spinbox
+from app.ui.widgets.clip_row import ClipRowWidget
 from app.ui.widgets.menu_combo import MenuCombo
 from app.ui.workers import SearchClipsWorker
 
@@ -40,6 +42,7 @@ class ClipsPage(QWidget):
         self._config = None
         self._worker: Optional[SearchClipsWorker] = None
         self._clips: list[Clip] = []
+        self._rows: dict[str, ClipRowWidget] = {}
         self._net = QNetworkAccessManager(self)
         self._build()
 
@@ -148,7 +151,13 @@ class ClipsPage(QWidget):
         root.addLayout(tools)
 
         self.list_widget = QListWidget()
-        self.list_widget.setIconSize(QSize(180, 100))
+        self.list_widget.setObjectName("ClipList")
+        self.list_widget.setSpacing(0)
+        self.list_widget.setUniformItemSizes(False)
+        self.list_widget.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self.list_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.list_widget.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        self.list_widget.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         root.addWidget(self.list_widget, stretch=1)
 
         bottom = QHBoxLayout()
@@ -282,22 +291,18 @@ class ClipsPage(QWidget):
                 continue
             filtered.append(clip)
         self._clips = filtered
+        self._rows.clear()
         self.list_widget.clear()
         for clip in filtered:
-            item = QListWidgetItem()
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(Qt.CheckState.Unchecked)
-            created = (
-                clip.created_at.strftime("%d/%m/%Y %H:%M") if clip.created_at else "—"
-            )
-            item.setText(
-                f"{clip.title}\n"
-                f"{clip.broadcaster_name} · {clip.views_label} vues · "
-                f"{clip.duration_label} · {created}"
-            )
+            item = QListWidgetItem(self.list_widget)
+            item.setFlags(Qt.ItemFlag.ItemIsEnabled)
             item.setData(Qt.ItemDataRole.UserRole, clip.id)
+            row = ClipRowWidget(clip)
+            item.setSizeHint(row.sizeHint().expandedTo(QSize(0, 124)))
             self.list_widget.addItem(item)
-            self._load_thumb(item, clip.thumbnail_url)
+            self.list_widget.setItemWidget(item, row)
+            self._rows[clip.id] = row
+            self._load_thumb(row, clip.thumbnail_url)
 
         msg = f"{len(filtered)} clip(s) trouvé(s)"
         if skipped:
@@ -307,7 +312,7 @@ class ClipsPage(QWidget):
         self.status_label.setText(msg)
         self.log_requested.emit(f"Recherche: {msg}")
 
-    def _load_thumb(self, item: QListWidgetItem, url: str) -> None:
+    def _load_thumb(self, row: ClipRowWidget, url: str) -> None:
         if not url:
             return
         url = url.replace("%{width}", "320").replace("%{height}", "180")
@@ -317,14 +322,7 @@ class ClipsPage(QWidget):
             data = reply.readAll()
             pix = QPixmap()
             if pix.loadFromData(data):
-                item.setIcon(
-                    pix.scaled(
-                        180,
-                        100,
-                        Qt.AspectRatioMode.KeepAspectRatio,
-                        Qt.TransformationMode.SmoothTransformation,
-                    )
-                )
+                row.set_thumbnail(pix)
             reply.deleteLater()
 
         reply.finished.connect(done)
@@ -342,22 +340,18 @@ class ClipsPage(QWidget):
         self.log_requested.emit(f"Erreur recherche: {message}")
 
     def _set_all_checked(self, checked: bool) -> None:
-        state = Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
-        for i in range(self.list_widget.count()):
-            self.list_widget.item(i).setCheckState(state)
+        for row in self._rows.values():
+            row.set_checked(checked)
 
     def _send_selected(self) -> None:
-        ids = set()
-        for i in range(self.list_widget.count()):
-            item = self.list_widget.item(i)
-            if item.checkState() == Qt.CheckState.Checked:
-                ids.add(item.data(Qt.ItemDataRole.UserRole))
-        selected = [c for c in self._clips if c.id in ids]
+        selected = [
+            c for c in self._clips if self._rows.get(c.id) and self._rows[c.id].is_checked()
+        ]
         if not selected:
             QMessageBox.information(
                 self,
                 "Aucune sélection",
-                "Cochez au moins une case à gauche de un clip, puis réessayez.",
+                "Cochez au moins une case à gauche d’un clip, puis réessayez.",
             )
             return
         self.clips_selected.emit(selected)

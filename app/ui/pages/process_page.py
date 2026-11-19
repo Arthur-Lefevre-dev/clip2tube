@@ -12,7 +12,6 @@ from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtWidgets import (
     QCheckBox,
-    QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -20,7 +19,6 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QProgressBar,
-    QDoubleSpinBox,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -30,7 +28,6 @@ from PySide6.QtWidgets import (
 
 from app.models import Clip, Job, LayoutType, layout_needs_facecam
 from app.models.region import FacecamRegion
-from app.ui.theme import style_spinbox
 from app.ui.widgets.facecam_crop import FacecamCropDialog
 from app.ui.widgets.layout_picker import LayoutPicker
 from app.ui.widgets.menu_combo import MenuCombo
@@ -54,9 +51,11 @@ class ProcessPage(QWidget):
         self._crop_worker: Optional[PrepareCropFrameWorker] = None
         self._queue: list[Clip] = []
         self._current_job: Optional[Job] = None
-        self._music_path: Optional[Path] = None
+        self._pending_clip: Optional[Clip] = None
         self._facecam_region = FacecamRegion()
         self._last_output: Optional[Path] = None
+        self._batch_outputs: list[Path] = []
+        self._preview_index: int = -1
         self._build()
 
     def bind(self, pipeline, config) -> None:
@@ -87,8 +86,6 @@ class ProcessPage(QWidget):
         self._on_facecam_size_changed()
         self._refresh_facecam_label()
         self._on_layout_changed()
-        vol = float(defaults.get("music_volume", 0.15) or 0.15)
-        self.volume_spin.setValue(vol)
 
     def set_clips(self, clips: list[Clip]) -> None:
         self._clips = list(clips)
@@ -232,6 +229,15 @@ class ProcessPage(QWidget):
             lambda _i: self._on_facecam_size_changed()
         )
         face.addWidget(self.facecam_size)
+
+        self.facecam_each_clip = QCheckBox(
+            "Recadrer la cam à chaque clip (si elle bouge)"
+        )
+        self.facecam_each_clip.setChecked(True)
+        self.facecam_each_clip.setToolTip(
+            "Avant chaque rendu, vous entourez le visage sur ce clip-là."
+        )
+        face.addWidget(self.facecam_each_clip)
         left.addWidget(self.facecam_box)
 
         # Options
@@ -243,37 +249,6 @@ class ProcessPage(QWidget):
         self.title_overlay_check = QCheckBox("Afficher le titre sur la vidéo")
         self.title_overlay_check.setChecked(False)
         opt_lay.addWidget(self.title_overlay_check)
-
-        music_lbl = QLabel("Musique de fond (optionnel)")
-        music_lbl.setObjectName("ProcessHint")
-        opt_lay.addWidget(music_lbl)
-        music_row = QHBoxLayout()
-        self.music_label = QLabel("Aucune")
-        self.music_label.setObjectName("ProcessHint")
-        pick_music = QPushButton("Choisir")
-        pick_music.setObjectName("SecondaryButton")
-        pick_music.clicked.connect(self._pick_music)
-        clear_music = QPushButton("Retirer")
-        clear_music.setObjectName("SecondaryButton")
-        clear_music.clicked.connect(self._clear_music)
-        music_row.addWidget(self.music_label, stretch=1)
-        music_row.addWidget(pick_music)
-        music_row.addWidget(clear_music)
-        opt_lay.addLayout(music_row)
-
-        vol_row = QHBoxLayout()
-        vol_lbl = QLabel("Volume")
-        vol_lbl.setObjectName("ProcessHint")
-        self.volume_spin = QDoubleSpinBox()
-        style_spinbox(self.volume_spin)
-        self.volume_spin.setRange(0.0, 1.0)
-        self.volume_spin.setSingleStep(0.05)
-        self.volume_spin.setValue(0.15)
-        self.volume_spin.setMaximumWidth(120)
-        vol_row.addWidget(vol_lbl)
-        vol_row.addWidget(self.volume_spin)
-        vol_row.addStretch(1)
-        opt_lay.addLayout(vol_row)
         left.addWidget(opt_card)
 
         # Destination
@@ -335,7 +310,9 @@ class ProcessPage(QWidget):
         phone_area_lay = QVBoxLayout(self._phone_area)
         phone_area_lay.setContentsMargins(0, 4, 0, 4)
         phone_area_lay.setSpacing(0)
-        phone_area_lay.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+        phone_area_lay.setAlignment(
+            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
+        )
 
         self._phone = QFrame()
         self._phone.setObjectName("PreviewPhone")
@@ -343,12 +320,11 @@ class ProcessPage(QWidget):
             QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
         )
         phone_lay = QVBoxLayout(self._phone)
-        phone_lay.setContentsMargins(8, 8, 8, 8)
+        # No inner padding — video must fill the 9:16 frame edge-to-edge
+        phone_lay.setContentsMargins(0, 0, 0, 0)
         phone_lay.setSpacing(0)
 
-        self.preview_empty = QLabel(
-            "L’aperçu 9:16\napparaîtra ici."
-        )
+        self.preview_empty = QLabel("L’aperçu 9:16\napparaîtra ici.")
         self.preview_empty.setObjectName("PreviewEmpty")
         self.preview_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.preview_empty.setWordWrap(True)
@@ -357,9 +333,12 @@ class ProcessPage(QWidget):
         self.video_widget = QVideoWidget()
         self.video_widget.setMinimumSize(100, 160)
         self.video_widget.setVisible(False)
+        if hasattr(self.video_widget, "setAspectRatioMode"):
+            self.video_widget.setAspectRatioMode(
+                Qt.AspectRatioMode.KeepAspectRatioByExpanding
+            )
         phone_lay.addWidget(self.video_widget, stretch=1)
         phone_area_lay.addWidget(self._phone, 0, Qt.AlignmentFlag.AlignHCenter)
-        phone_area_lay.addStretch(1)
         right.addWidget(self._phone_area, 1)
 
         self.player = QMediaPlayer(self)
@@ -375,6 +354,27 @@ class ProcessPage(QWidget):
         controls_lay = QVBoxLayout(controls)
         controls_lay.setContentsMargins(0, 8, 0, 0)
         controls_lay.setSpacing(8)
+
+        nav = QHBoxLayout()
+        self.prev_preview_btn = QPushButton("◀")
+        self.prev_preview_btn.setObjectName("SecondaryButton")
+        self.prev_preview_btn.setFixedWidth(40)
+        self.prev_preview_btn.setEnabled(False)
+        self.prev_preview_btn.setToolTip("Clip précédent du lot")
+        self.prev_preview_btn.clicked.connect(lambda: self._nav_preview(-1))
+        self.preview_index_label = QLabel("0 / 0")
+        self.preview_index_label.setObjectName("ProcessHint")
+        self.preview_index_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.next_preview_btn = QPushButton("▶")
+        self.next_preview_btn.setObjectName("SecondaryButton")
+        self.next_preview_btn.setFixedWidth(40)
+        self.next_preview_btn.setEnabled(False)
+        self.next_preview_btn.setToolTip("Clip suivant du lot")
+        self.next_preview_btn.clicked.connect(lambda: self._nav_preview(1))
+        nav.addWidget(self.prev_preview_btn)
+        nav.addWidget(self.preview_index_label, stretch=1)
+        nav.addWidget(self.next_preview_btn)
+        controls_lay.addLayout(nav)
 
         self.output_path_label = QLabel("Aucune vidéo créée")
         self.output_path_label.setObjectName("ProcessHint")
@@ -476,21 +476,8 @@ class ProcessPage(QWidget):
                     clip = c
                     break
 
-        ffmpeg = ""
-        if self._config:
-            ffmpeg = str(self._config.get("ffmpeg_path", default="") or "")
-
-        self.facecam_btn.setEnabled(False)
         self.status_label.setText("Préparation de l’image pour le cadrage…")
-        self._crop_worker = PrepareCropFrameWorker(
-            clip=clip,
-            dest_dir=get_app_root() / "temp",
-            ffmpeg_path=ffmpeg,
-        )
-        self._crop_worker.progress.connect(lambda m: self.status_label.setText(m))
-        self._crop_worker.finished_ok.connect(self._on_frame_ready)
-        self._crop_worker.failed.connect(self._on_frame_fail)
-        self._crop_worker.start()
+        self._prepare_facecam_for_clip(clip, for_batch=False)
 
     def _on_frame_ready(self, frame_path: str) -> None:
         self.facecam_btn.setEnabled(True)
@@ -517,18 +504,6 @@ class ProcessPage(QWidget):
         self.facecam_btn.setEnabled(True)
         QMessageBox.warning(self, "Zone cam", message)
         self.log_requested.emit(f"Échec cadrage cam: {message}")
-
-    def _pick_music(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Musique de fond", "", "Audio (*.mp3 *.wav *.m4a *.aac)"
-        )
-        if path:
-            self._music_path = Path(path)
-            self.music_label.setText(self._music_path.name)
-
-    def _clear_music(self) -> None:
-        self._music_path = None
-        self.music_label.setText("Aucune")
 
     def _start_batch(self) -> None:
         if not self._pipeline or not self._config:
@@ -565,25 +540,129 @@ class ProcessPage(QWidget):
         self._config.set(
             "defaults", "burn_title_overlay", self.title_overlay_check.isChecked()
         )
-        self._config.set("defaults", "music_volume", self.volume_spin.value())
         self._config.set("defaults", "layout", layout)
         self._config.set("defaults", "facecam_region", self._facecam_region.to_dict())
         save_config(self._config)
 
         self._queue = list(self._clips)
+        self._batch_outputs = []
+        self._preview_index = -1
+        self._update_preview_nav()
         self.run_btn.setEnabled(False)
         self._process_next()
 
     def _process_next(self) -> None:
         if not self._queue:
+            self._pending_clip = None
             self.run_btn.setEnabled(True)
-            self.status_label.setText("Terminé — regardez l’aperçu à droite.")
+            n = len(self._batch_outputs)
+            self.status_label.setText(
+                f"Lot terminé — {n} vidéo(s). Naviguez dans l’aperçu ◀ ▶"
+                if n
+                else "Terminé."
+            )
             self.log_requested.emit("Traitement du lot terminé.")
             return
 
         clip = self._queue.pop(0)
         layout = LayoutType(self.layout_picker.currentData())
-        facecam = self._facecam_region if layout_needs_facecam(layout) else None
+        needs_cam = layout_needs_facecam(layout)
+        recrop = needs_cam and self.facecam_each_clip.isChecked()
+
+        if recrop:
+            self._pending_clip = clip
+            self.status_label.setText(
+                f"Recadrage cam pour : {clip.title[:60]}"
+            )
+            self._prepare_facecam_for_clip(clip, for_batch=True)
+            return
+
+        self._start_job_for_clip(clip, self._facecam_region if needs_cam else None)
+
+    def _prepare_facecam_for_clip(self, clip: Clip, *, for_batch: bool) -> None:
+        if self._crop_worker and self._crop_worker.isRunning():
+            return
+        ffmpeg = ""
+        if self._config:
+            ffmpeg = str(self._config.get("ffmpeg_path", default="") or "")
+        self.facecam_btn.setEnabled(False)
+        self._crop_worker = PrepareCropFrameWorker(
+            clip=clip,
+            dest_dir=get_app_root() / "temp",
+            ffmpeg_path=ffmpeg,
+        )
+        self._crop_worker.progress.connect(lambda m: self.status_label.setText(m))
+        if for_batch:
+            self._crop_worker.finished_ok.connect(self._on_batch_frame_ready)
+            self._crop_worker.failed.connect(self._on_batch_frame_fail)
+        else:
+            self._crop_worker.finished_ok.connect(self._on_frame_ready)
+            self._crop_worker.failed.connect(self._on_frame_fail)
+        self._crop_worker.start()
+
+    def _on_batch_frame_ready(self, frame_path: str) -> None:
+        self.facecam_btn.setEnabled(True)
+        clip = self._pending_clip
+        if clip is None:
+            self._process_next()
+            return
+        region = FacecamCropDialog.pick(
+            Path(frame_path),
+            initial=self._facecam_region,
+            parent=self,
+            title=f"Zone cam — {clip.title[:50]}",
+        )
+        if region is None:
+            skip = QMessageBox.question(
+                self,
+                "Cadrage annulé",
+                "Passer ce clip et continuer le lot ?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if skip == QMessageBox.StandardButton.Yes:
+                self._pending_clip = None
+                self._process_next()
+            else:
+                self._queue.insert(0, clip)
+                self._pending_clip = None
+                self.run_btn.setEnabled(True)
+                self.status_label.setText("Lot en pause")
+            return
+
+        data = self.facecam_size.currentData() or (0.33, 0.66)
+        region.top_ratio = float(data[0])
+        region.width_ratio = float(data[1])
+        self._facecam_region = region.clamped()
+        self._refresh_facecam_label()
+        if self._config:
+            self._config.set("defaults", "facecam_region", region.to_dict())
+            save_config(self._config)
+        self._pending_clip = None
+        self._start_job_for_clip(clip, self._facecam_region)
+
+    def _on_batch_frame_fail(self, message: str) -> None:
+        self.facecam_btn.setEnabled(True)
+        clip = self._pending_clip
+        self._pending_clip = None
+        self.log_requested.emit(f"Échec cadrage cam: {message}")
+        use_default = QMessageBox.question(
+            self,
+            "Zone cam",
+            f"Impossible de préparer le cadrage.\n{message}\n\n"
+            "Utiliser la dernière zone connue pour ce clip ?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if clip and use_default == QMessageBox.StandardButton.Yes:
+            self._start_job_for_clip(clip, self._facecam_region)
+        else:
+            self._process_next()
+
+    def _start_job_for_clip(
+        self, clip: Clip, facecam: FacecamRegion | None
+    ) -> None:
+        if not self._pipeline:
+            return
+        layout = LayoutType(self.layout_picker.currentData())
         job = self._pipeline.create_job_from_clip(
             clip,
             layout=layout,
@@ -594,14 +673,16 @@ class ProcessPage(QWidget):
             facecam_region=facecam,
         )
         self._current_job = job
-        self.status_label.setText(f"Création : {clip.title}")
+        left = len(self._queue)
+        self.status_label.setText(
+            f"Création : {clip.title}  ·  {left} restant(s)"
+        )
         self.progress.setValue(5)
 
         self._worker = ProcessJobWorker(
             self._pipeline,
             job,
             clip_url=clip.url,
-            music_path=self._music_path,
             skip_publish=self.preview_only.isChecked(),
         )
         self._worker.log.connect(lambda m: self.log_requested.emit(m))
@@ -617,9 +698,11 @@ class ProcessPage(QWidget):
     def _on_job_ok(self, job: Job) -> None:
         self.job_done.emit(job)
         if job.output_path and Path(job.output_path).exists():
-            self._set_last_output(Path(job.output_path))
-            self.status_label.setText(f"Vidéo prête : {Path(job.output_path).name}")
-            self.player.play()
+            path = Path(job.output_path)
+            self._batch_outputs.append(path)
+            self._preview_index = len(self._batch_outputs) - 1
+            self._show_preview_at(self._preview_index, autoplay=True)
+            self.status_label.setText(f"Vidéo prête : {path.name}")
         self.progress.setValue(100)
         self._process_next()
 
@@ -628,7 +711,31 @@ class ProcessPage(QWidget):
         QMessageBox.warning(self, "Création", message)
         self._process_next()
 
-    def _set_last_output(self, path: Path) -> None:
+    def _update_preview_nav(self) -> None:
+        n = len(self._batch_outputs)
+        idx = self._preview_index
+        if n == 0:
+            self.preview_index_label.setText("0 / 0")
+            self.prev_preview_btn.setEnabled(False)
+            self.next_preview_btn.setEnabled(False)
+            return
+        self.preview_index_label.setText(f"{idx + 1} / {n}")
+        self.prev_preview_btn.setEnabled(idx > 0)
+        self.next_preview_btn.setEnabled(idx < n - 1)
+
+    def _nav_preview(self, delta: int) -> None:
+        if not self._batch_outputs:
+            return
+        new_idx = self._preview_index + delta
+        if new_idx < 0 or new_idx >= len(self._batch_outputs):
+            return
+        self._show_preview_at(new_idx, autoplay=True)
+
+    def _show_preview_at(self, index: int, *, autoplay: bool = False) -> None:
+        if index < 0 or index >= len(self._batch_outputs):
+            return
+        path = self._batch_outputs[index]
+        self._preview_index = index
         self._last_output = path
         self.output_path_label.setText(path.name)
         self.open_file_btn.setEnabled(True)
@@ -637,8 +744,20 @@ class ProcessPage(QWidget):
         self.video_widget.setVisible(True)
         self.player.stop()
         self.player.setSource(QUrl.fromLocalFile(str(path.resolve())))
+        self._update_preview_nav()
+        self._fit_preview_phone()
+        if autoplay:
+            self.player.play()
+
+    def _set_last_output(self, path: Path) -> None:
+        if path not in self._batch_outputs:
+            self._batch_outputs.append(path)
+        self._show_preview_at(len(self._batch_outputs) - 1, autoplay=False)
 
     def _play_last(self) -> None:
+        if self._preview_index >= 0 and self._batch_outputs:
+            self._show_preview_at(self._preview_index, autoplay=True)
+            return
         if not self._last_output or not self._last_output.exists():
             QMessageBox.information(
                 self,
@@ -646,9 +765,7 @@ class ProcessPage(QWidget):
                 "Créez d’abord une vidéo, puis vous pourrez la lire ici.",
             )
             return
-        self.preview_empty.setVisible(False)
-        self.video_widget.setVisible(True)
-        self.player.setSource(QUrl.fromLocalFile(str(self._last_output.resolve())))
+        self._set_last_output(self._last_output)
         self.player.play()
 
     def _open_video_file(self) -> None:

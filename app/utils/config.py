@@ -43,7 +43,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "max_clip_duration": 60,
         "whisper_model": "small",
         "whisper_language": "auto",
-        "whisper_use_gpu": False,
+        "whisper_use_gpu": True,
         "subtitles_enabled": True,
         "burn_title_overlay": False,
         "title_font": "Arial",

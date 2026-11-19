@@ -80,6 +80,7 @@ class VideoEditorService:
         draw = ",".join(draw_parts)
 
         if layout == LayoutType.BLUR_CENTER:
+            # Blur fills canvas; gameplay fits width, centered (blur above/below — not black)
             video_graph = (
                 f"[0:v]scale={W}:{H}:force_original_aspect_ratio=increase,"
                 f"crop={W}:{H},gblur=sigma=25,setsar=1[bg];"
@@ -91,6 +92,7 @@ class VideoEditorService:
         elif layout == LayoutType.FACECAM_QUARTER:
             video_graph = self._facecam_quarter_graph(facecam_region)
         else:
+            # Classic letterbox — only layout that keeps intentional bars
             video_graph = (
                 f"[0:v]scale={W}:-2:force_original_aspect_ratio=decrease,"
                 f"pad={W}:{H}:(ow-iw)/2:(oh-ih)/2:black,"
@@ -160,12 +162,34 @@ class VideoEditorService:
             on_progress("Rendu vidéo terminé.")
         return output
 
+    @staticmethod
+    def _cam_crop_expr(r: FacecamRegion) -> str:
+        return f"crop=iw*{r.w:.6f}:ih*{r.h:.6f}:iw*{r.x:.6f}:ih*{r.y:.6f}"
+
+    @staticmethod
+    def _game_crop_expr(r: FacecamRegion) -> str:
+        """
+        Crop the gameplay area of the Twitch frame (outside the webcam box)
+        so the game can fill its panel without leftover black.
+        """
+        # Cam on the right → take everything to the left of the cam
+        if r.x >= 0.40:
+            gw = max(0.40, min(r.x + 0.02, 0.95))
+            return f"crop=iw*{gw:.6f}:ih:0:0"
+        # Cam on the left → take everything to the right of the cam
+        right = r.x + r.w
+        if right <= 0.60:
+            gx = max(0.0, right - 0.02)
+            gw = max(0.40, 1.0 - gx)
+            return f"crop=iw*{gw:.6f}:ih:iw*{gx:.6f}:0"
+        # Overlapping center — full frame, then cover-scale
+        return "null"
+
     def _facecam_graph(self, region: FacecamRegion | None) -> str:
         """
-        L-shape Shorts layout (user sketch):
-        - RED: cam panel top-left (~2/3 width × ~1/3 height)
-        - BLUE: gameplay fills the whole 9:16 frame underneath
-          → visible as an L (right of cam + full bottom)
+        L-shape Shorts layout:
+        - Cam panel top-left
+        - Gameplay cover-fills the whole 9:16 canvas underneath (no black bars)
         """
         r = (region or FacecamRegion()).clamped()
         cam_w = int(round(W * r.width_ratio))
@@ -175,42 +199,45 @@ class VideoEditorService:
         cam_w = max(320, min(cam_w, W - 2))
         cam_h = max(240, min(cam_h, H - 2))
 
-        cam_crop = (
-            f"crop=iw*{r.w:.6f}:ih*{r.h:.6f}:iw*{r.x:.6f}:ih*{r.y:.6f}"
-        )
+        cam_crop = self._cam_crop_expr(r)
+        game_crop = self._game_crop_expr(r)
+        game_prep = f"{game_crop}," if game_crop != "null" else ""
         return (
             f"[0:v]split=2[cam][game];"
-            # BLUE: gameplay fills the entire vertical canvas
-            f"[game]scale={W}:{H}:force_original_aspect_ratio=increase,"
+            f"[game]{game_prep}"
+            f"scale={W}:{H}:force_original_aspect_ratio=increase,"
             f"crop={W}:{H},setsar=1,fps={FPS},format=yuv420p[bg];"
-            # RED: webcam crop → top-left panel
             f"[cam]{cam_crop},"
             f"scale={cam_w}:{cam_h}:force_original_aspect_ratio=increase,"
-            f"crop={cam_w}:{cam_h},setsar=1[pip];"
-            # Overlay cam on top-left of gameplay
+            f"crop={cam_w}:{cam_h},setsar=1,format=yuv420p[pip];"
             f"[bg][pip]overlay=0:0"
         )
 
     def _facecam_quarter_graph(self, region: FacecamRegion | None) -> str:
         """
-        Stacked Shorts layout: webcam top 1/4, gameplay bottom 3/4.
-        Uses the same facecam crop region for the cam strip.
+        Stacked Shorts: webcam top 1/4, gameplay bottom 3/4.
+        Game cover-fills its panel (no letterbox / black bars).
         """
         r = (region or FacecamRegion()).clamped()
         cam_h = H // 4
         game_h = H - cam_h
         cam_h -= cam_h % 2
+        game_h = H - cam_h
         game_h -= game_h % 2
+        # Keep exact canvas height
+        if cam_h + game_h != H:
+            game_h = H - cam_h
 
-        cam_crop = (
-            f"crop=iw*{r.w:.6f}:ih*{r.h:.6f}:iw*{r.x:.6f}:ih*{r.y:.6f}"
-        )
+        cam_crop = self._cam_crop_expr(r)
+        game_crop = self._game_crop_expr(r)
+        game_prep = f"{game_crop}," if game_crop != "null" else ""
         return (
             f"[0:v]split=2[cam][game];"
             f"[cam]{cam_crop},"
             f"scale={W}:{cam_h}:force_original_aspect_ratio=increase,"
-            f"crop={W}:{cam_h},setsar=1[top];"
-            f"[game]scale={W}:{game_h}:force_original_aspect_ratio=increase,"
+            f"crop={W}:{cam_h},setsar=1,fps={FPS},format=yuv420p[top];"
+            f"[game]{game_prep}"
+            f"scale={W}:{game_h}:force_original_aspect_ratio=increase,"
             f"crop={W}:{game_h},setsar=1,fps={FPS},format=yuv420p[bot];"
-            f"[top][bot]vstack=inputs=2"
+            f"[top][bot]vstack=inputs=2,setsar=1,format=yuv420p"
         )

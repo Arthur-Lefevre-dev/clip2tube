@@ -45,7 +45,7 @@ class SubtitlesService:
         model_size: str = "small",
         font: str = "Arial",
         color: str = "#FFFFFF",
-        use_gpu: bool = False,
+        use_gpu: bool = True,
         on_progress: Optional[ProgressCallback] = None,
     ) -> Path:
         try:
@@ -56,15 +56,27 @@ class SubtitlesService:
                 "Lancez: pip install faster-whisper"
             ) from exc
 
-        if on_progress:
-            on_progress(f"Chargement modèle Whisper ({model_size})…")
+        from app.utils.gpu import detect_gpu, prepare_rocm_env, resolve_whisper_device
 
-        device = "cuda" if use_gpu else "cpu"
-        compute_type = "float16" if use_gpu else "int8"
+        device, compute_type, reason = resolve_whisper_device(use_gpu=use_gpu)
+        gpu = detect_gpu()
+        if gpu.vendor == "amd" and device == "cuda":
+            prepare_rocm_env()
+        if on_progress:
+            on_progress(f"Whisper : {reason}")
+            backend = "ROCm" if gpu.vendor == "amd" and device == "cuda" else device
+            on_progress(
+                f"Chargement modèle ({model_size}) sur {backend}/{compute_type}…"
+            )
+
         try:
             model = WhisperModel(model_size, device=device, compute_type=compute_type)
-        except Exception:
-            # Fallback to CPU if GPU init fails
+        except Exception as gpu_exc:
+            # Fallback to CPU if GPU / ROCm init fails
+            if on_progress:
+                on_progress(
+                    f"Échec GPU ({gpu_exc}) — bascule sur CPU…"
+                )
             model = WhisperModel(model_size, device="cpu", compute_type="int8")
 
         if on_progress:

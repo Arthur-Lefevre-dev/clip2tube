@@ -232,9 +232,14 @@ QLabel#StepBadge {{
 }}
 
 #PreviewPhone {{
-    background-color: #0a0c10;
+    background-color: #000000;
     border: 2px solid {COLORS["border"]};
     border-radius: 18px;
+}}
+
+#PreviewPhone QVideoWidget {{
+    background-color: #000000;
+    border-radius: 16px;
 }}
 
 #PreviewEmpty {{
@@ -256,10 +261,14 @@ QToolButton#LayoutChoice {{
     background-color: {COLORS["surface_alt"]};
     color: {COLORS["text"]};
     border: 2px solid {COLORS["border"]};
-    border-radius: 6px;
-    padding: 10px 8px 12px 8px;
-    font-size: 12px;
+    border-radius: 14px;
+    padding: 8px 6px 10px 6px;
+    font-size: 11px;
     font-weight: 700;
+    min-width: 128px;
+    max-width: 128px;
+    min-height: 128px;
+    max-height: 128px;
 }}
 
 QToolButton#LayoutChoice:hover {{
@@ -282,6 +291,121 @@ QToolButton#LayoutChoice[selected="true"] {{
 #StatusKo {{
     color: {COLORS["warning"]};
     font-weight: 700;
+}}
+
+#SetupTile {{
+    background-color: {COLORS["surface_alt"]};
+    border: 1px solid {COLORS["border"]};
+    border-radius: 14px;
+}}
+
+#SetupTile[state="ok"] {{
+    border: 1px solid {COLORS["success"]};
+    background-color: #1a2a22;
+}}
+
+#SetupTile[state="todo"] {{
+    border: 1px solid {COLORS["warning"]};
+    background-color: #2a2418;
+}}
+
+#SetupTile[state="optional"] {{
+    border: 1px solid {COLORS["border"]};
+}}
+
+#SetupStep {{
+    font-size: 12px;
+    font-weight: 800;
+    color: {COLORS["text_muted"]};
+    min-width: 16px;
+}}
+
+#SetupTitle {{
+    font-size: 15px;
+    font-weight: 760;
+    color: {COLORS["text"]};
+}}
+
+#SetupSubtitle {{
+    font-size: 12px;
+    color: {COLORS["text_muted"]};
+}}
+
+#SetupDetail {{
+    font-size: 13px;
+    color: {COLORS["text"]};
+    padding-top: 2px;
+}}
+
+#SetupBadge {{
+    font-size: 12px;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 8px;
+    background-color: {COLORS["border"]};
+    color: {COLORS["text"]};
+}}
+
+#SetupBadge[state="ok"] {{
+    background-color: {COLORS["success"]};
+    color: #0b1410;
+}}
+
+#SetupBadge[state="todo"] {{
+    background-color: {COLORS["warning"]};
+    color: #1a1200;
+}}
+
+#SetupBadge[state="optional"] {{
+    background-color: {COLORS["surface"]};
+    color: {COLORS["text_muted"]};
+}}
+
+QListWidget#StreamerList {{
+    background-color: {COLORS["bg"]};
+    border: 1px solid {COLORS["border"]};
+    border-radius: 14px;
+    padding: 8px;
+}}
+
+QListWidget#StreamerList::item {{
+    background-color: transparent;
+    border: none;
+    margin: 0 0 8px 0;
+    padding: 0;
+}}
+
+QListWidget#StreamerList::item:selected {{
+    background-color: transparent;
+}}
+
+#StreamerRow {{
+    background-color: {COLORS["surface_alt"]};
+    border: 1px solid {COLORS["border"]};
+    border-radius: 12px;
+}}
+
+#StreamerRow:hover {{
+    border-color: {COLORS["accent"]};
+}}
+
+#StreamerAvatar {{
+    background-color: {COLORS["nav_active"]};
+    border-radius: 24px;
+    color: {COLORS["accent_hover"]};
+    font-weight: 800;
+    font-size: 16px;
+}}
+
+#StreamerDisplayName {{
+    font-size: 15px;
+    font-weight: 760;
+    color: {COLORS["text"]};
+}}
+
+#StreamerLogin {{
+    font-size: 12px;
+    color: {COLORS["text_muted"]};
 }}
 
 #PlaceholderCard {{
@@ -364,7 +488,7 @@ QPushButton#MenuCombo {{
     color: {COLORS["text"]};
     border: 2px solid {COLORS["border"]};
     border-radius: 12px;
-    padding: 10px 36px 10px 14px;
+    padding: 12px 42px 12px 20px;
     text-align: left;
     font-size: 15px;
     font-weight: 600;
@@ -474,6 +598,79 @@ QListWidget::item:selected {{
     background-color: {COLORS["nav_active"]};
 }}
 
+/* Clip search results */
+QListWidget#ClipList {{
+    background-color: {COLORS["bg"]};
+    border: 1px solid {COLORS["border"]};
+    border-radius: 16px;
+    padding: 12px;
+}}
+
+QListWidget#ClipList::item {{
+    background-color: transparent;
+    border: none;
+    border-radius: 0;
+    margin: 0 0 14px 0;
+    padding: 0;
+}}
+
+QListWidget#ClipList::item:selected {{
+    background-color: transparent;
+}}
+
+QListWidget#ClipList::item:hover {{
+    background-color: transparent;
+}}
+
+#ClipRow {{
+    background-color: {COLORS["surface"]};
+    border: 1px solid {COLORS["border"]};
+    border-radius: 14px;
+}}
+
+#ClipRow:hover {{
+    border-color: {COLORS["accent"]};
+    background-color: {COLORS["surface_alt"]};
+}}
+
+#ClipThumb {{
+    background-color: {COLORS["surface_alt"]};
+    border-radius: 10px;
+    color: {COLORS["text_muted"]};
+}}
+
+#ClipDuration {{
+    background-color: rgba(0, 0, 0, 180);
+    color: {COLORS["text"]};
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 7px;
+    border-radius: 6px;
+}}
+
+#ClipTitle {{
+    font-size: 16px;
+    font-weight: 700;
+    color: {COLORS["text"]};
+    padding: 0;
+}}
+
+#ClipStreamer {{
+    font-size: 13px;
+    font-weight: 700;
+    color: {COLORS["accent_hover"]};
+}}
+
+#ClipMeta {{
+    font-size: 13px;
+    color: {COLORS["text_muted"]};
+}}
+
+#ClipSep {{
+    font-size: 13px;
+    color: {COLORS["border"]};
+}}
+
 QScrollBar:vertical {{
     background: {COLORS["bg"]};
     width: 12px;
@@ -529,6 +726,12 @@ QCheckBox::indicator {{
 QCheckBox::indicator:checked {{
     background: {COLORS["accent"]};
     border-color: {COLORS["accent"]};
+    image: url(__CHECK_X__);
+}}
+
+QCheckBox::indicator:checked:hover {{
+    background: {COLORS["accent_hover"]};
+    border-color: {COLORS["accent_hover"]};
 }}
 
 QGroupBox {{
@@ -621,6 +824,7 @@ def _stylesheet_with_assets() -> str:
         "__CHEVRON_DOWN__": get_asset_path("chevron_down.png"),
         "__SPIN_PLUS__": get_asset_path("spin_plus.png"),
         "__SPIN_MINUS__": get_asset_path("spin_minus.png"),
+        "__CHECK_X__": get_asset_path("check_x.png"),
     }
     for token, path in replacements.items():
         if path.is_file():

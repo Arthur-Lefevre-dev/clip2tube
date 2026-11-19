@@ -2,6 +2,9 @@ PySide6>=6.6.0
 requests>=2.31.0
 yt-dlp>=2024.1.0
 faster-whisper>=1.0.0
+# Default pip ctranslate2 is CUDA (NVIDIA). For AMD GPUs on Windows, run:
+#   powershell -File scripts/setup_amd_rocm.ps1
+# (installs ROCm SDK + CTranslate2 ROCm wheel; Whisper still uses device="cuda")
 # PyAV 19 removed metadata_errors; faster-whisper 1.2.x still passes it
 av>=11,<19
 google-api-python-client>=2.100.0

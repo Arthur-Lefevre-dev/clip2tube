@@ -14,7 +14,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMessageBox,
-    QDoubleSpinBox,
     QPushButton,
     QTextEdit,
     QVBoxLayout,
@@ -22,7 +21,6 @@ from PySide6.QtWidgets import (
     QScrollArea,
 )
 
-from app.ui.theme import style_spinbox
 from app.ui.widgets.menu_combo import MenuCombo
 from app.utils.config import save_config
 from app.utils.ffmpeg import find_ffmpeg
@@ -46,6 +44,20 @@ class SettingsPage(QWidget):
     def refresh_from_config(self) -> None:
         """Reload form fields from disk-backed config (e.g. after Accueil CRUD)."""
         self._load()
+
+    def _refresh_gpu_status(self) -> None:
+        try:
+            from app.utils.gpu import detect_gpu, resolve_whisper_device
+
+            info = detect_gpu()
+            device, ctype, reason = resolve_whisper_device(
+                use_gpu=self.whisper_gpu.isChecked()
+            )
+            self.gpu_status.setText(
+                f"{info.label}\n→ Whisper utilisera : {device} ({ctype})\n{reason}"
+            )
+        except Exception as exc:
+            self.gpu_status.setText(f"Détection impossible : {exc}")
 
     def _build(self) -> None:
         outer = QVBoxLayout(self)
@@ -184,17 +196,21 @@ class SettingsPage(QWidget):
             self.whisper_model.addItem(m, m)
         self.whisper_model.setCurrentText("small")
         self.whisper_lang = QLineEdit("auto")
-        self.whisper_gpu = QCheckBox("Utiliser GPU si disponible")
+        self.whisper_gpu = QCheckBox("Utiliser le GPU de l’ordinateur (auto)")
+        self.whisper_gpu.setToolTip(
+            "NVIDIA + CUDA → Whisper sur GPU. "
+            "AMD + ROCm (CTranslate2 ROCm) → Whisper sur GPU. "
+            "Sinon → CPU."
+        )
+        self.whisper_gpu.toggled.connect(lambda _c: self._refresh_gpu_status())
+        self.gpu_status = QLabel("Détection GPU…")
+        self.gpu_status.setObjectName("PageSubtitle")
+        self.gpu_status.setWordWrap(True)
         df.addRow("Modèle Whisper", self.whisper_model)
         df.addRow("Langue Whisper", self.whisper_lang)
         df.addRow(self.whisper_gpu)
+        df.addRow("Carte détectée", self.gpu_status)
 
-        self.music_volume = QDoubleSpinBox()
-        style_spinbox(self.music_volume)
-        self.music_volume.setRange(0, 1)
-        self.music_volume.setSingleStep(0.05)
-        self.music_volume.setValue(0.15)
-        df.addRow("Volume musique défaut", self.music_volume)
         root.addWidget(defaults)
 
         # Updates
@@ -259,8 +275,8 @@ class SettingsPage(QWidget):
         self.sub_color.setText(d.get("subtitle_color", "#FFFFFF"))
         self.whisper_model.setCurrentText(d.get("whisper_model", "small"))
         self.whisper_lang.setText(d.get("whisper_language", "auto"))
-        self.whisper_gpu.setChecked(bool(d.get("whisper_use_gpu", False)))
-        self.music_volume.setValue(float(d.get("music_volume", 0.15)))
+        self.whisper_gpu.setChecked(bool(d.get("whisper_use_gpu", True)))
+        self._refresh_gpu_status()
         self.update_startup.setChecked(
             bool(c.get("updates", "check_on_startup", default=True))
         )
@@ -301,7 +317,6 @@ class SettingsPage(QWidget):
         c.set("defaults", "whisper_model", self.whisper_model.currentText())
         c.set("defaults", "whisper_language", self.whisper_lang.text().strip() or "auto")
         c.set("defaults", "whisper_use_gpu", self.whisper_gpu.isChecked())
-        c.set("defaults", "music_volume", self.music_volume.value())
         c.set("updates", "check_on_startup", self.update_startup.isChecked())
         c.set(
             "updates",
