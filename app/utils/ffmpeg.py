@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 from app.utils.paths import get_app_root
+from app.utils.process import run_hidden
 
 
 def _candidate_names(binary: str) -> list[str]:
@@ -85,20 +86,8 @@ def run_ffmpeg(
             "FFmpeg introuvable. Indiquez le chemin dans Paramètres "
             "ou placez ffmpeg.exe dans le dossier ffmpeg/."
         )
-    # CREATE_NO_WINDOW avoids a console flash on Windows GUI apps
-    creationflags = 0
-    if os.name == "nt":
-        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-
-    cmd = [str(binary), "-y", *args]
-    return subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        check=False,
-        creationflags=creationflags,
-    )
+    cmd = [str(binary), "-hide_banner", "-loglevel", "error", "-y", *args]
+    return run_hidden(cmd, timeout=timeout, check=False)
 
 
 def probe_duration(video_path: Path, ffprobe_path: Optional[Path] = None) -> float:
@@ -106,7 +95,7 @@ def probe_duration(video_path: Path, ffprobe_path: Optional[Path] = None) -> flo
     binary = ffprobe_path or find_ffprobe()
     if binary is None:
         return 0.0
-    result = subprocess.run(
+    result = run_hidden(
         [
             str(binary),
             "-v",
@@ -117,8 +106,6 @@ def probe_duration(video_path: Path, ffprobe_path: Optional[Path] = None) -> flo
             "default=noprint_wrappers=1:nokey=1",
             str(video_path),
         ],
-        capture_output=True,
-        text=True,
         check=False,
     )
     try:

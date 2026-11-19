@@ -3,14 +3,40 @@
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 from typing import Callable, Optional
 
 from app.models import Clip
+from app.utils.ffmpeg import find_ffmpeg
 from app.utils.paths import get_app_root
+from app.utils.process import windows_hidden_kwargs
 
 
 ProgressCallback = Callable[[str], None]
+
+
+def _patch_subprocess_no_window() -> None:
+    """Ensure child consoles (ffmpeg via yt-dlp) stay hidden on Windows."""
+    if getattr(subprocess, "_clip2tube_hidden_patched", False):
+        return
+    hidden = windows_hidden_kwargs()
+    if not hidden:
+        return
+    original_popen = subprocess.Popen
+
+    def _popen(*args, **kwargs):  # type: ignore[no-untyped-def]
+        for key, value in hidden.items():
+            if key == "creationflags":
+                kwargs["creationflags"] = int(kwargs.get("creationflags", 0)) | int(
+                    value
+                )
+            else:
+                kwargs.setdefault(key, value)
+        return original_popen(*args, **kwargs)
+
+    subprocess.Popen = _popen  # type: ignore[misc]
+    subprocess._clip2tube_hidden_patched = True  # type: ignore[attr-defined]
 
 
 class DownloaderError(Exception):
@@ -33,6 +59,8 @@ class DownloaderService:
                 "yt-dlp n'est pas installé. Lancez: pip install yt-dlp"
             ) from exc
 
+        _patch_subprocess_no_window()
+
         dest_dir.mkdir(parents=True, exist_ok=True)
         safe_id = re.sub(r"[^\w\-]+", "_", clip.id)
         outtmpl = str(dest_dir / f"{safe_id}.%(ext)s")
@@ -54,10 +82,11 @@ class DownloaderService:
         cache_dir = get_app_root() / "temp" / "yt-dlp-cache"
         cache_dir.mkdir(parents=True, exist_ok=True)
 
-        ydl_opts = {
+        ydl_opts: dict = {
             "outtmpl": outtmpl,
             "quiet": True,
             "noprogress": True,
+            "no_warnings": True,
             "progress_hooks": [hook],
             "retries": 5,
             "fragment_retries": 5,
@@ -73,6 +102,9 @@ class DownloaderService:
                 ),
             },
         }
+        ffmpeg = find_ffmpeg()
+        if ffmpeg:
+            ydl_opts["ffmpeg_location"] = str(ffmpeg.parent)
 
         url = clip.url or f"https://clips.twitch.tv/{clip.id}"
         try:

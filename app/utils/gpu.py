@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import os
 import shutil
-import subprocess
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Literal
+
+from app.utils.process import run_hidden
 
 Vendor = Literal["nvidia", "amd", "intel", "other", "none"]
 
@@ -42,13 +43,7 @@ class GpuInfo:
 
 def _run(cmd: list[str], timeout: float = 8.0) -> str:
     try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
+        proc = run_hidden(cmd, timeout=timeout, check=False)
         if proc.returncode != 0:
             return ""
         return (proc.stdout or "").strip()
@@ -66,6 +61,8 @@ def _detect_via_wmi() -> list[str]:
         [
             "powershell",
             "-NoProfile",
+            "-WindowStyle",
+            "Hidden",
             "-ExecutionPolicy",
             "Bypass",
             "-Command",

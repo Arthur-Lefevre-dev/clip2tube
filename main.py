@@ -41,6 +41,16 @@ from app.utils.config import load_config
 from app.utils.paths import ensure_dirs
 
 
+def _silence_child_consoles() -> None:
+    """Prevent brief black console popups from ffmpeg / yt-dlp on Windows."""
+    try:
+        from app.services.downloader import _patch_subprocess_no_window
+
+        _patch_subprocess_no_window()
+    except Exception:
+        pass
+
+
 def _qt_message_filter(mode, context, message: str) -> None:  # noqa: ARG001
     """Drop noisy Multimedia/FFmpeg backend lines; keep real warnings/errors."""
     text = message or ""
@@ -70,6 +80,7 @@ def _qt_message_filter(mode, context, message: str) -> None:  # noqa: ARG001
 
 def main() -> int:
     """Boot the Qt application and show the main window."""
+    _silence_child_consoles()
     ensure_dirs()
     config = load_config()
     database = Database()
