@@ -21,9 +21,9 @@ class FacecamRegion:
     y: float = 0.05
     w: float = 0.28
     h: float = 0.40
-    # Output panel size (matches the red zone on the user's sketch)
-    top_ratio: float = 0.33  # cam height ~1/3
-    width_ratio: float = 0.66  # cam width ~2/3
+    # Output panel size for L-shape layout (compact by default)
+    top_ratio: float = 0.26  # cam height ~1/4
+    width_ratio: float = 0.45  # cam width ~half
 
     def clamped(self) -> FacecamRegion:
         """Return a copy with values clamped to a valid rectangle."""
@@ -31,8 +31,8 @@ class FacecamRegion:
         y = max(0.0, min(self.y, 0.95))
         w = max(0.05, min(self.w, 1.0 - x))
         h = max(0.05, min(self.h, 1.0 - y))
-        top_ratio = max(0.22, min(float(self.top_ratio), 0.50))
-        width_ratio = max(0.40, min(float(self.width_ratio), 0.85))
+        top_ratio = max(0.16, min(float(self.top_ratio), 0.45))
+        width_ratio = max(0.32, min(float(self.width_ratio), 0.75))
         return FacecamRegion(
             x=x, y=y, w=w, h=h, top_ratio=top_ratio, width_ratio=width_ratio
         )
@@ -61,8 +61,8 @@ class FacecamRegion:
             y=float(data.get("y", 0.05)),
             w=float(data.get("w", 0.28)),
             h=float(data.get("h", 0.40)),
-            top_ratio=float(data.get("top_ratio", 0.33)),
-            width_ratio=float(data.get("width_ratio", 0.66)),
+            top_ratio=float(data.get("top_ratio", 0.26)),
+            width_ratio=float(data.get("width_ratio", 0.45)),
         ).clamped()
 
     def label(self) -> str:

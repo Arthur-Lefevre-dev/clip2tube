@@ -173,77 +173,68 @@ class VideoEditorService:
         return f"crop=iw*{r.w:.6f}:ih*{r.h:.6f}:iw*{r.x:.6f}:ih*{r.y:.6f}"
 
     @staticmethod
-    def _game_crop_expr(r: FacecamRegion) -> str:
+    def _cover_center(w: int, h: int) -> str:
         """
-        Crop the gameplay area of the Twitch frame (outside the webcam box)
-        so the game can fill its panel without leftover black.
+        Scale-to-cover then crop the *center* of the frame into w×h.
+        Keeps the middle of gameplay (crosshair / action) in the panel.
         """
-        # Cam on the right → take everything to the left of the cam
-        if r.x >= 0.40:
-            gw = max(0.40, min(r.x + 0.02, 0.95))
-            return f"crop=iw*{gw:.6f}:ih:0:0"
-        # Cam on the left → take everything to the right of the cam
-        right = r.x + r.w
-        if right <= 0.60:
-            gx = max(0.0, right - 0.02)
-            gw = max(0.40, 1.0 - gx)
-            return f"crop=iw*{gw:.6f}:ih:iw*{gx:.6f}:0"
-        # Overlapping center — full frame, then cover-scale
-        return "null"
+        return (
+            f"scale={w}:{h}:force_original_aspect_ratio=increase,"
+            f"crop={w}:{h}:(iw-ow)/2:(ih-oh)/2"
+        )
 
     def _facecam_graph(self, region: FacecamRegion | None) -> str:
         """
         L-shape Shorts layout:
-        - Cam panel top-left
-        - Gameplay cover-fills the whole 9:16 canvas underneath (no black bars)
+        - Compact cam panel top-left
+        - Full-frame gameplay cover-fills the 9:16 canvas (center crop)
         """
         r = (region or FacecamRegion()).clamped()
-        cam_w = int(round(W * r.width_ratio))
-        cam_h = int(round(H * r.top_ratio))
+        # Prefer a smaller cam by default for this style
+        cam_w = int(round(W * min(r.width_ratio, 0.48)))
+        cam_h = int(round(H * min(r.top_ratio, 0.28)))
         cam_w -= cam_w % 2
         cam_h -= cam_h % 2
-        cam_w = max(320, min(cam_w, W - 2))
-        cam_h = max(240, min(cam_h, H - 2))
+        cam_w = max(280, min(cam_w, W - 2))
+        cam_h = max(200, min(cam_h, H - 2))
 
         cam_crop = self._cam_crop_expr(r)
-        game_crop = self._game_crop_expr(r)
-        game_prep = f"{game_crop}," if game_crop != "null" else ""
+        cover = self._cover_center(W, H)
         return (
             f"[0:v]split=2[cam][game];"
-            f"[game]{game_prep}"
-            f"scale={W}:{H}:force_original_aspect_ratio=increase,"
-            f"crop={W}:{H},setsar=1,fps={FPS},format=yuv420p[bg];"
+            # Full source → center cover (gameplay middle stays in frame)
+            f"[game]{cover},setsar=1,fps={FPS},format=yuv420p[bg];"
             f"[cam]{cam_crop},"
-            f"scale={cam_w}:{cam_h}:force_original_aspect_ratio=increase,"
-            f"crop={cam_w}:{cam_h},setsar=1,format=yuv420p[pip];"
+            f"{self._cover_center(cam_w, cam_h)},"
+            f"setsar=1,format=yuv420p[pip];"
             f"[bg][pip]overlay=0:0"
         )
 
     def _facecam_quarter_graph(self, region: FacecamRegion | None) -> str:
         """
-        Stacked Shorts: webcam top 1/4, gameplay bottom 3/4.
-        Game cover-fills its panel (no letterbox / black bars).
+        Stacked Shorts: compact webcam on top, gameplay fills the rest.
+        Gameplay uses a center cover-crop of the full source (no side-cut)
+        so the middle of the action stays centered.
         """
         r = (region or FacecamRegion()).clamped()
-        cam_h = H // 4
-        game_h = H - cam_h
+        # Smaller cam strip (~18% height) — more room for gameplay
+        cam_h = int(round(H * 0.18))
         cam_h -= cam_h % 2
+        cam_h = max(200, min(cam_h, 420))
         game_h = H - cam_h
         game_h -= game_h % 2
-        # Keep exact canvas height
         if cam_h + game_h != H:
             game_h = H - cam_h
 
         cam_crop = self._cam_crop_expr(r)
-        game_crop = self._game_crop_expr(r)
-        game_prep = f"{game_crop}," if game_crop != "null" else ""
         return (
             f"[0:v]split=2[cam][game];"
+            # Cam: fill the top strip completely (no black bars)
             f"[cam]{cam_crop},"
-            f"scale={W}:{cam_h}:force_original_aspect_ratio=increase,"
-            f"crop={W}:{cam_h},setsar=1,fps={FPS},format=yuv420p[top];"
-            f"[game]{game_prep}"
-            f"scale={W}:{game_h}:force_original_aspect_ratio=increase,"
-            f"crop={W}:{game_h},setsar=1,fps={FPS},format=yuv420p[bot];"
+            f"{self._cover_center(W, cam_h)},"
+            f"setsar=1,fps={FPS},format=yuv420p[top];"
+            # Game: full frame, center cover into the tall bottom panel
+            f"[game]{self._cover_center(W, game_h)},"
+            f"setsar=1,fps={FPS},format=yuv420p[bot];"
             f"[top][bot]vstack=inputs=2,setsar=1,format=yuv420p"
         )

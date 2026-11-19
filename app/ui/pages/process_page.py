@@ -71,7 +71,7 @@ class ProcessPage(QWidget):
             bool(defaults.get("burn_title_overlay", False))
         )
         self._facecam_region = FacecamRegion.from_dict(defaults.get("facecam_region"))
-        best_idx = 1
+        best_idx = 0
         best_dist = 99.0
         for i in range(self.facecam_size.count()):
             data = self.facecam_size.itemData(i)
@@ -223,10 +223,11 @@ class ProcessPage(QWidget):
         self.facecam_size_label = QLabel("Taille de la caméra (style L)")
         face.addWidget(self.facecam_size_label)
         self.facecam_size = MenuCombo()
-        self.facecam_size.addItem("Compacte", (0.28, 0.55))
-        self.facecam_size.addItem("Équilibrée (recommandé)", (0.33, 0.66))
-        self.facecam_size.addItem("Grande", (0.40, 0.75))
-        self.facecam_size.setCurrentIndex(1)
+        self.facecam_size.addItem("Petite (recommandé)", (0.22, 0.42))
+        self.facecam_size.addItem("Compacte", (0.26, 0.48))
+        self.facecam_size.addItem("Moyenne", (0.30, 0.55))
+        self.facecam_size.addItem("Grande", (0.36, 0.65))
+        self.facecam_size.setCurrentIndex(0)
         self.facecam_size.currentIndexChanged.connect(
             lambda _i: self._on_facecam_size_changed()
         )

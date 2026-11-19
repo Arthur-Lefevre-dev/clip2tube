@@ -32,7 +32,7 @@ _LAYOUTS: list[tuple[str, str, str]] = [
     ),
     (
         LayoutType.FACECAM_QUARTER.value,
-        "1/4 cam\n3/4 vidéo",
+        "Cam haute\njeu centré",
         "facecam_quarter.png",
     ),
     (
