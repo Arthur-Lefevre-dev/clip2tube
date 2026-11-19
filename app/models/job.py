@@ -28,6 +28,7 @@ class LayoutType(str, Enum):
     """Vertical video layout presets."""
 
     BLUR_CENTER = "blur_center"  # Gameplay centered + blurred background
+    FILL_HEIGHT = "fill_height"  # Full 9:16 cover crop, no webcam panel
     FACECAM_SPLIT = "facecam_split"  # Facecam PIP top-left over gameplay
     FACECAM_QUARTER = "facecam_quarter"  # Top 1/4 cam + bottom 3/4 gameplay
     LETTERBOX = "letterbox"  # 16:9 centered with black bars + title

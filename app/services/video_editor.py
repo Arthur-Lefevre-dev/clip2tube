@@ -87,6 +87,12 @@ class VideoEditorService:
                 f"[0:v]scale={W}:-2:force_original_aspect_ratio=decrease[fg];"
                 f"[bg][fg]overlay=(W-w)/2:(H-h)/2,fps={FPS},format=yuv420p"
             )
+        elif layout == LayoutType.FILL_HEIGHT:
+            # Full-frame cover: video fills entire 9:16 height, no cam, no bars
+            video_graph = (
+                f"[0:v]scale={W}:{H}:force_original_aspect_ratio=increase,"
+                f"crop={W}:{H},setsar=1,fps={FPS},format=yuv420p"
+            )
         elif layout == LayoutType.FACECAM_SPLIT:
             video_graph = self._facecam_graph(facecam_region)
         elif layout == LayoutType.FACECAM_QUARTER:

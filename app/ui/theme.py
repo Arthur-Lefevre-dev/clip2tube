@@ -265,10 +265,10 @@ QToolButton#LayoutChoice {{
     padding: 8px 6px 10px 6px;
     font-size: 11px;
     font-weight: 700;
-    min-width: 128px;
-    max-width: 128px;
-    min-height: 128px;
-    max-height: 128px;
+    min-width: 112px;
+    max-width: 112px;
+    min-height: 112px;
+    max-height: 112px;
 }}
 
 QToolButton#LayoutChoice:hover {{

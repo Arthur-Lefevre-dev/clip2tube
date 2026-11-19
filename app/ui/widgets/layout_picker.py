@@ -9,16 +9,21 @@ from PySide6.QtWidgets import QButtonGroup, QHBoxLayout, QSizePolicy, QToolButto
 from app.models import LayoutType
 from app.utils.paths import get_asset_path
 
-# Equal square tiles side by side
-TILE = 128
-ICON_W = 48
-ICON_H = 80
+# Equal square tiles side by side (5 options)
+TILE = 112
+ICON_W = 42
+ICON_H = 70
 
 _LAYOUTS: list[tuple[str, str, str]] = [
     (
         LayoutType.BLUR_CENTER.value,
         "Fond flou\n★ reco",
         "blur_center.png",
+    ),
+    (
+        LayoutType.FILL_HEIGHT.value,
+        "Plein écran\nsans cam",
+        "fill_height.png",
     ),
     (
         LayoutType.FACECAM_SPLIT.value,
@@ -50,23 +55,29 @@ def _fallback_icon(kind: str) -> QPixmap:
         p.setBrush(QColor("#3c3250"))
         p.drawRoundedRect(6, 6, ICON_W - 12, ICON_H - 12, 8, 8)
         p.setBrush(QColor("#7864a0"))
-        p.drawRoundedRect(12, 24, ICON_W - 24, 32, 6, 6)
+        p.drawRoundedRect(12, 22, ICON_W - 24, 28, 6, 6)
+    elif kind == LayoutType.FILL_HEIGHT.value:
+        # Full cover — gameplay fills the whole phone
+        p.setBrush(QColor("#2a6a8a"))
+        p.drawRoundedRect(6, 6, ICON_W - 12, ICON_H - 12, 8, 8)
+        p.setBrush(QColor("#5eb0d0"))
+        p.drawRoundedRect(14, 18, ICON_W - 28, ICON_H - 36, 4, 4)
     elif kind == LayoutType.FACECAM_SPLIT.value:
         p.setBrush(QColor("#28465a"))
         p.drawRoundedRect(6, 6, ICON_W - 12, ICON_H - 12, 8, 8)
         p.setBrush(QColor("#e84d8a"))
-        p.drawRoundedRect(8, 8, 20, 24, 5, 5)
+        p.drawRoundedRect(8, 8, 18, 22, 5, 5)
     elif kind == LayoutType.FACECAM_QUARTER.value:
         p.setBrush(QColor("#e84d8a"))
-        p.drawRoundedRect(6, 6, ICON_W - 12, 18, 4, 4)
+        p.drawRoundedRect(6, 6, ICON_W - 12, 16, 4, 4)
         p.setBrush(QColor("#28465a"))
-        p.drawRoundedRect(6, 28, ICON_W - 12, ICON_H - 36, 4, 4)
+        p.drawRoundedRect(6, 26, ICON_W - 12, ICON_H - 34, 4, 4)
     else:
         p.setBrush(QColor("#0a0c10"))
-        p.drawRect(6, 6, ICON_W - 12, 12)
-        p.drawRect(6, ICON_H - 18, ICON_W - 12, 12)
+        p.drawRect(6, 6, ICON_W - 12, 10)
+        p.drawRect(6, ICON_H - 16, ICON_W - 12, 10)
         p.setBrush(QColor("#5a6e8c"))
-        p.drawRoundedRect(8, 22, ICON_W - 16, 36, 3, 3)
+        p.drawRoundedRect(8, 20, ICON_W - 16, 32, 3, 3)
     p.end()
     return pix
 
@@ -101,7 +112,7 @@ class LayoutPicker(QWidget):
     def _build(self) -> None:
         row = QHBoxLayout(self)
         row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(10)
+        row.setSpacing(8)
         row.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
         for value, label, icon_name in _LAYOUTS:
