@@ -7,12 +7,14 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal, QUrl
+from PySide6.QtCore import Qt, Signal, QUrl, QRectF, QSizeF
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
-from PySide6.QtMultimediaWidgets import QVideoWidget
+from PySide6.QtMultimediaWidgets import QGraphicsVideoItem
 from PySide6.QtWidgets import (
     QCheckBox,
     QFrame,
+    QGraphicsScene,
+    QGraphicsView,
     QHBoxLayout,
     QLabel,
     QListWidget,
@@ -290,13 +292,13 @@ class ProcessPage(QWidget):
         # ================= RIGHT: sticky preview (viewport-sized) =================
         self._preview_shell = QFrame()
         self._preview_shell.setObjectName("PreviewShell")
-        self._preview_shell.setFixedWidth(300)
+        self._preview_shell.setFixedWidth(320)
         self._preview_shell.setSizePolicy(
             QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
         )
         right = QVBoxLayout(self._preview_shell)
-        right.setContentsMargins(14, 14, 14, 14)
-        right.setSpacing(10)
+        right.setContentsMargins(12, 12, 12, 12)
+        right.setSpacing(12)
 
         prev_title = QLabel("Aperçu")
         prev_title.setObjectName("ProcessCardTitle")
@@ -308,7 +310,7 @@ class ProcessPage(QWidget):
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
         phone_area_lay = QVBoxLayout(self._phone_area)
-        phone_area_lay.setContentsMargins(0, 4, 0, 4)
+        phone_area_lay.setContentsMargins(0, 0, 0, 0)
         phone_area_lay.setSpacing(0)
         phone_area_lay.setAlignment(
             Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
@@ -320,7 +322,6 @@ class ProcessPage(QWidget):
             QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
         )
         phone_lay = QVBoxLayout(self._phone)
-        # No inner padding — video must fill the 9:16 frame edge-to-edge
         phone_lay.setContentsMargins(0, 0, 0, 0)
         phone_lay.setSpacing(0)
 
@@ -330,21 +331,31 @@ class ProcessPage(QWidget):
         self.preview_empty.setWordWrap(True)
         phone_lay.addWidget(self.preview_empty)
 
-        self.video_widget = QVideoWidget()
-        self.video_widget.setMinimumSize(100, 160)
-        self.video_widget.setVisible(False)
-        if hasattr(self.video_widget, "setAspectRatioMode"):
-            self.video_widget.setAspectRatioMode(
-                Qt.AspectRatioMode.KeepAspectRatioByExpanding
-            )
-        phone_lay.addWidget(self.video_widget, stretch=1)
+        # Graphics video fills the phone exactly (no letterbox bars in the UI)
+        self._video_scene = QGraphicsScene(self)
+        self._video_item = QGraphicsVideoItem()
+        self._video_scene.addItem(self._video_item)
+        self.video_view = QGraphicsView(self._video_scene)
+        self.video_view.setObjectName("PreviewVideoView")
+        self.video_view.setFrameShape(QFrame.Shape.NoFrame)
+        self.video_view.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.video_view.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.video_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.video_view.setStyleSheet("background: #000; border: none;")
+        self.video_view.setVisible(False)
+        phone_lay.addWidget(self.video_view, stretch=1)
         phone_area_lay.addWidget(self._phone, 0, Qt.AlignmentFlag.AlignHCenter)
         right.addWidget(self._phone_area, 1)
 
         self.player = QMediaPlayer(self)
         self.audio = QAudioOutput(self)
         self.player.setAudioOutput(self.audio)
-        self.player.setVideoOutput(self.video_widget)
+        self.player.setVideoOutput(self._video_item)
+        self._video_item.nativeSizeChanged.connect(self._fit_video_item)
 
         # Bottom controls — never share space with the phone
         controls = QWidget()
@@ -352,22 +363,21 @@ class ProcessPage(QWidget):
             QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
         )
         controls_lay = QVBoxLayout(controls)
-        controls_lay.setContentsMargins(0, 8, 0, 0)
-        controls_lay.setSpacing(8)
+        controls_lay.setContentsMargins(0, 4, 0, 0)
+        controls_lay.setSpacing(10)
 
         nav = QHBoxLayout()
-        self.prev_preview_btn = QPushButton("◀")
+        nav.setSpacing(8)
+        self.prev_preview_btn = QPushButton("◀ Préc.")
         self.prev_preview_btn.setObjectName("SecondaryButton")
-        self.prev_preview_btn.setFixedWidth(40)
         self.prev_preview_btn.setEnabled(False)
         self.prev_preview_btn.setToolTip("Clip précédent du lot")
         self.prev_preview_btn.clicked.connect(lambda: self._nav_preview(-1))
         self.preview_index_label = QLabel("0 / 0")
         self.preview_index_label.setObjectName("ProcessHint")
         self.preview_index_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.next_preview_btn = QPushButton("▶")
+        self.next_preview_btn = QPushButton("Suiv. ▶")
         self.next_preview_btn.setObjectName("SecondaryButton")
-        self.next_preview_btn.setFixedWidth(40)
         self.next_preview_btn.setEnabled(False)
         self.next_preview_btn.setToolTip("Clip suivant du lot")
         self.next_preview_btn.clicked.connect(lambda: self._nav_preview(1))
@@ -382,6 +392,7 @@ class ProcessPage(QWidget):
         controls_lay.addWidget(self.output_path_label)
 
         preview_btns = QHBoxLayout()
+        preview_btns.setSpacing(8)
         self.play_btn = QPushButton("▶  Lire")
         self.play_btn.setObjectName("BigAction")
         self.play_btn.clicked.connect(self._play_last)
@@ -393,6 +404,7 @@ class ProcessPage(QWidget):
         controls_lay.addLayout(preview_btns)
 
         file_btns = QHBoxLayout()
+        file_btns.setSpacing(8)
         self.open_file_btn = QPushButton("Ouvrir")
         self.open_file_btn.setObjectName("SecondaryButton")
         self.open_file_btn.setEnabled(False)
@@ -424,8 +436,8 @@ class ProcessPage(QWidget):
         if not hasattr(self, "_phone_area") or not hasattr(self, "_phone"):
             return
         area = self._phone_area
-        avail_h = max(160, area.height() - 8)
-        avail_w = max(100, min(260, area.width() - 8))
+        avail_h = max(180, area.height() - 4)
+        avail_w = max(120, min(296, area.width() - 4))
         if avail_h < 40 or avail_w < 40:
             return
         h_from_w = int(avail_w * 16 / 9)
@@ -434,9 +446,29 @@ class ProcessPage(QWidget):
             w, h = avail_w, h_from_w
         else:
             w, h = w_from_h, avail_h
-        w = max(100, min(w, avail_w))
-        h = max(160, min(h, avail_h))
+        w = max(120, min(w, avail_w))
+        h = max(180, min(h, avail_h))
         self._phone.setFixedSize(w, h)
+        self._fit_video_item()
+
+    def _fit_video_item(self, *_args) -> None:
+        """Stretch the video item to cover the phone view (crop overflow if needed)."""
+        if not hasattr(self, "video_view") or not hasattr(self, "_video_item"):
+            return
+        vw = max(1, self.video_view.viewport().width())
+        vh = max(1, self.video_view.viewport().height())
+        self.video_view.setSceneRect(QRectF(0, 0, vw, vh))
+        native = self._video_item.nativeSize()
+        if native.width() <= 0 or native.height() <= 0:
+            self._video_item.setSize(QSizeF(vw, vh))
+            self._video_item.setPos(0, 0)
+            return
+        # Cover-fit 9:16 viewport (same idea as CSS object-fit: cover)
+        scale = max(vw / native.width(), vh / native.height())
+        tw = native.width() * scale
+        th = native.height() * scale
+        self._video_item.setSize(QSizeF(tw, th))
+        self._video_item.setPos((vw - tw) / 2, (vh - th) / 2)
 
     def _on_layout_changed(self, *_args) -> None:
         layout = self.layout_picker.currentData()
@@ -737,11 +769,15 @@ class ProcessPage(QWidget):
         path = self._batch_outputs[index]
         self._preview_index = index
         self._last_output = path
-        self.output_path_label.setText(path.name)
+        name = path.name
+        if len(name) > 36:
+            name = name[:16] + "…" + name[-16:]
+        self.output_path_label.setText(name)
+        self.output_path_label.setToolTip(str(path))
         self.open_file_btn.setEnabled(True)
         self.open_folder_btn.setEnabled(True)
         self.preview_empty.setVisible(False)
-        self.video_widget.setVisible(True)
+        self.video_view.setVisible(True)
         self.player.stop()
         self.player.setSource(QUrl.fromLocalFile(str(path.resolve())))
         self._update_preview_nav()
