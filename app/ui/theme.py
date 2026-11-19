@@ -427,6 +427,20 @@ QListWidget#VideoJobList {{
     padding: 10px;
 }}
 
+QFrame#QueueEmptyPanel {{
+    background-color: {COLORS["surface"]};
+    border: 1px dashed {COLORS["border"]};
+    border-radius: 16px;
+    min-height: 420px;
+}}
+
+QLabel#QueueEmptyText {{
+    font-size: 15px;
+    color: {COLORS["text_muted"]};
+    background-color: transparent;
+    padding: 12px 24px;
+}}
+
 QListWidget#VideoJobList::item {{
     background-color: transparent;
     border: none;

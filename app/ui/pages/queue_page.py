@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -23,6 +24,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QPushButton,
+    QSizePolicy,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -196,14 +198,28 @@ class QueuePage(QWidget):
         self.list_widget.itemDoubleClicked.connect(lambda _i: self._edit_selected())
         root.addWidget(self.list_widget, stretch=1)
 
-        self.empty = QLabel(
+        # Same footprint as the list on Étape 1 / 2 so the page does not collapse.
+        self.empty = QFrame()
+        self.empty.setObjectName("QueueEmptyPanel")
+        self.empty.setFrameShape(QFrame.Shape.NoFrame)
+        self.empty.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.empty.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
+        self.empty.setMinimumHeight(420)
+        empty_lay = QVBoxLayout(self.empty)
+        empty_lay.setContentsMargins(24, 24, 24, 24)
+        empty_msg = QLabel(
             "Aucune vidéo pour l’instant.\n"
             "Créez-en une depuis « Traitement », elle apparaîtra ici."
         )
-        self.empty.setObjectName("EmptyHint")
-        self.empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.empty.setWordWrap(True)
-        root.addWidget(self.empty)
+        empty_msg.setObjectName("QueueEmptyText")
+        empty_msg.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_msg.setWordWrap(True)
+        empty_lay.addStretch(1)
+        empty_lay.addWidget(empty_msg)
+        empty_lay.addStretch(1)
+        root.addWidget(self.empty, stretch=1)
 
         crud = QHBoxLayout()
         crud.setSpacing(8)
