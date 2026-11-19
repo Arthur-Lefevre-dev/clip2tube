@@ -30,6 +30,14 @@ if getattr(sys, "frozen", False):
             os.environ.setdefault("QT_PLUGIN_PATH", str(candidate))
             break
 
+# IMPORTANT: import CTranslate2 BEFORE PySide6.
+# On Python 3.14, loading Qt first breaks `import ctranslate2` (asyncio
+# NameError: base_events), so Whisper wrongly falls back to CPU even when
+# the AMD ROCm wheel is installed and get_cuda_device_count() would be 1.
+try:
+    import ctranslate2 as _ctranslate2  # noqa: F401
+except Exception:
+    pass
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt, qInstallMessageHandler, QtMsgType

@@ -141,9 +141,9 @@ class HomePage(QWidget):
                 detail = f"Sous-titres accélérés (NVIDIA · {name})."
             elif info.vendor == "amd":
                 detail = (
-                    f"{name} détectée — Whisper utilise CTranslate2, "
-                    "pas PyTorch. Lancez scripts/setup_amd_rocm.ps1 "
-                    "pour activer le GPU (sinon CPU)."
+                    f"{name} détectée — GPU non utilisable pour Whisper "
+                    "(CTranslate2 ROCm). Relancez l’app ; si ça reste lent, "
+                    "exécutez scripts/setup_amd_rocm.ps1."
                 )
             elif info.vendor == "nvidia":
                 detail = f"{name} détectée — CUDA manquant, sous-titres sur le processeur."
