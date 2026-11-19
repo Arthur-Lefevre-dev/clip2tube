@@ -8,7 +8,7 @@ from typing import Callable, Optional
 from uuid import uuid4
 
 from app.db import Database
-from app.models import Clip, Job, JobStatus, LayoutType
+from app.models import Clip, Job, JobStatus, LayoutType, layout_needs_facecam
 from app.models.region import FacecamRegion
 from app.services.downloader import DownloaderService
 from app.services.subtitles import SubtitlesService
@@ -69,7 +69,7 @@ class PipelineService:
         layout_val = layout or LayoutType(
             defaults.get("layout", LayoutType.BLUR_CENTER.value)
         )
-        if facecam_region is None and layout_val == LayoutType.FACECAM_SPLIT:
+        if facecam_region is None and layout_needs_facecam(layout_val):
             facecam_region = FacecamRegion.from_dict(
                 defaults.get("facecam_region")
             )

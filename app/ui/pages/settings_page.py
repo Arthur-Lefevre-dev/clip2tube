@@ -15,15 +15,15 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMessageBox,
-    QPushButton,
-    QSpinBox,
     QDoubleSpinBox,
+    QPushButton,
     QTextEdit,
     QVBoxLayout,
     QWidget,
     QScrollArea,
 )
 
+from app.ui.theme import style_spinbox
 from app.utils.config import save_config
 from app.utils.ffmpeg import find_ffmpeg
 from app.utils.paths import get_app_root
@@ -32,6 +32,7 @@ from app.utils.paths import get_app_root
 class SettingsPage(QWidget):
     log_requested = Signal(str)
     saved = Signal()
+    check_updates_requested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -40,6 +41,10 @@ class SettingsPage(QWidget):
 
     def bind(self, config) -> None:
         self._config = config
+        self._load()
+
+    def refresh_from_config(self) -> None:
+        """Reload form fields from disk-backed config (e.g. after Accueil CRUD)."""
         self._load()
 
     def _build(self) -> None:
@@ -135,11 +140,20 @@ class SettingsPage(QWidget):
         pf.addRow("Qualité", self.quality)
         root.addWidget(paths)
 
-        # Streamers
+        # Streamers (also editable on Accueil — kept here for bulk paste)
         streamers = QGroupBox("Streamers suivis (auto-pilote)")
         sf = QVBoxLayout(streamers)
+        hint = QLabel(
+            "Astuce : vous pouvez aussi les gérer un par un sur l’Accueil. "
+            "Ici, un pseudo par ligne (pratique pour coller une liste)."
+        )
+        hint.setWordWrap(True)
+        hint.setObjectName("PageSubtitle")
+        sf.addWidget(hint)
         self.streamers_edit = QTextEdit()
-        self.streamers_edit.setPlaceholderText("un login par ligne\nex:\nxqc\npokimane")
+        self.streamers_edit.setPlaceholderText(
+            "un pseudo par ligne\nex:\nxqc\npokimane"
+        )
         self.streamers_edit.setFixedHeight(100)
         sf.addWidget(self.streamers_edit)
         root.addWidget(streamers)
@@ -174,11 +188,33 @@ class SettingsPage(QWidget):
         df.addRow(self.whisper_gpu)
 
         self.music_volume = QDoubleSpinBox()
+        style_spinbox(self.music_volume)
         self.music_volume.setRange(0, 1)
         self.music_volume.setSingleStep(0.05)
         self.music_volume.setValue(0.15)
         df.addRow("Volume musique défaut", self.music_volume)
         root.addWidget(defaults)
+
+        # Updates
+        updates = QGroupBox("Mises à jour en ligne")
+        uf = QFormLayout(updates)
+        self.update_startup = QCheckBox("Vérifier au démarrage de Clip2Tube")
+        self.update_startup.setChecked(True)
+        uf.addRow(self.update_startup)
+        self.update_repo = QLineEdit()
+        self.update_repo.setPlaceholderText("owner/repo sur GitHub")
+        uf.addRow("Dépôt GitHub", self.update_repo)
+        tip_up = QLabel(
+            "Les versions viennent des Releases GitHub (tag vX.Y.Z + ZIP portable)."
+        )
+        tip_up.setObjectName("PageSubtitle")
+        tip_up.setWordWrap(True)
+        uf.addRow(tip_up)
+        check_now = QPushButton("Vérifier les mises à jour maintenant")
+        check_now.setObjectName("SecondaryButton")
+        check_now.clicked.connect(self._request_update_check)
+        uf.addRow(check_now)
+        root.addWidget(updates)
 
         save = QPushButton("Enregistrer les réglages")
         save.setObjectName("BigAction")
@@ -223,6 +259,16 @@ class SettingsPage(QWidget):
         self.whisper_lang.setText(d.get("whisper_language", "auto"))
         self.whisper_gpu.setChecked(bool(d.get("whisper_use_gpu", False)))
         self.music_volume.setValue(float(d.get("music_volume", 0.15)))
+        self.update_startup.setChecked(
+            bool(c.get("updates", "check_on_startup", default=True))
+        )
+        self.update_repo.setText(
+            c.get("updates", "github_repo", default="Arthur-Lefevre-dev/clip2tube")
+            or "Arthur-Lefevre-dev/clip2tube"
+        )
+
+    def _request_update_check(self) -> None:
+        self.check_updates_requested.emit()
 
     def _save(self) -> None:
         c = self._config
@@ -254,6 +300,12 @@ class SettingsPage(QWidget):
         c.set("defaults", "whisper_language", self.whisper_lang.text().strip() or "auto")
         c.set("defaults", "whisper_use_gpu", self.whisper_gpu.isChecked())
         c.set("defaults", "music_volume", self.music_volume.value())
+        c.set("updates", "check_on_startup", self.update_startup.isChecked())
+        c.set(
+            "updates",
+            "github_repo",
+            self.update_repo.text().strip() or "Arthur-Lefevre-dev/clip2tube",
+        )
         save_config(c)
         self.log_requested.emit("Paramètres enregistrés")
         self.saved.emit()

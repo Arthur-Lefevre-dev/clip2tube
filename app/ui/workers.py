@@ -23,6 +23,7 @@ class SearchClipsWorker(QThread):
         max_clips: int,
         max_duration: float,
         is_game: bool,
+        streamers: Optional[list[str]] = None,
         parent=None,
     ) -> None:
         super().__init__(parent)
@@ -32,20 +33,61 @@ class SearchClipsWorker(QThread):
         self.max_clips = max_clips
         self.max_duration = max_duration
         self.is_game = is_game
+        self.streamers = [s for s in (streamers or []) if s]
 
     def run(self) -> None:
         try:
-            self.progress.emit("Recherche Twitch…")
-            clips = self.twitch.search_clips(
-                self.query,
-                period=self.period,
-                max_clips=self.max_clips,
-                max_duration=self.max_duration,
-                is_game=self.is_game,
-            )
+            if self.streamers:
+                clips = self._search_followed()
+            else:
+                self.progress.emit("Recherche Twitch…")
+                clips = self.twitch.search_clips(
+                    self.query,
+                    period=self.period,
+                    max_clips=self.max_clips,
+                    max_duration=self.max_duration,
+                    is_game=self.is_game,
+                )
             self.finished_ok.emit(clips)
         except Exception as exc:
             self.failed.emit(str(exc))
+
+    def _search_followed(self) -> list:
+        """Search each followed streamer, merge, dedupe, sort by views."""
+        target = max(1, int(self.max_clips))
+        per = max(5, (target // max(1, len(self.streamers))) + 5)
+        collected: list = []
+        seen: set[str] = set()
+        errors: list[str] = []
+
+        for i, login in enumerate(self.streamers, start=1):
+            self.progress.emit(
+                f"Streamer {i}/{len(self.streamers)} : {login}…"
+            )
+            try:
+                batch = self.twitch.search_clips(
+                    login,
+                    period=self.period,
+                    max_clips=per,
+                    max_duration=self.max_duration,
+                    is_game=False,
+                )
+            except Exception as exc:
+                errors.append(f"{login}: {exc}")
+                continue
+            for clip in batch:
+                if clip.id in seen:
+                    continue
+                seen.add(clip.id)
+                collected.append(clip)
+
+        collected.sort(key=lambda c: getattr(c, "view_count", 0) or 0, reverse=True)
+        if not collected and errors:
+            raise RuntimeError(
+                "Aucun clip trouvé chez vos streamers suivis.\n"
+                + "\n".join(errors[:5])
+            )
+        return collected[:target]
 
 
 class ProcessJobWorker(QThread):
@@ -124,6 +166,35 @@ class OAuthWorker(QThread):
         try:
             name = self.callback()
             self.finished_ok.emit(str(name))
+        except Exception as exc:
+            self.failed.emit(str(exc))
+
+
+class UpdateCheckWorker(QThread):
+    """Query GitHub Releases for a newer Clip2Tube version."""
+
+    finished_ok = Signal(object)  # UpdateInfo
+    failed = Signal(str)
+
+    def __init__(
+        self,
+        current_version: str,
+        github_repo: str,
+        parent=None,
+    ) -> None:
+        super().__init__(parent)
+        self.current_version = current_version
+        self.github_repo = github_repo
+
+    def run(self) -> None:
+        try:
+            from app.services.updater import check_for_updates
+
+            info = check_for_updates(
+                current_version=self.current_version,
+                github_repo=self.github_repo,
+            )
+            self.finished_ok.emit(info)
         except Exception as exc:
             self.failed.emit(str(exc))
 

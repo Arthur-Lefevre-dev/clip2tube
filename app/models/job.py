@@ -28,8 +28,18 @@ class LayoutType(str, Enum):
     """Vertical video layout presets."""
 
     BLUR_CENTER = "blur_center"  # Gameplay centered + blurred background
-    FACECAM_SPLIT = "facecam_split"  # Facecam top + gameplay bottom
+    FACECAM_SPLIT = "facecam_split"  # Facecam PIP top-left over gameplay
+    FACECAM_QUARTER = "facecam_quarter"  # Top 1/4 cam + bottom 3/4 gameplay
     LETTERBOX = "letterbox"  # 16:9 centered with black bars + title
+
+
+def layout_needs_facecam(layout: LayoutType | str) -> bool:
+    """True when the layout crops a webcam region from the source."""
+    value = layout.value if isinstance(layout, LayoutType) else str(layout)
+    return value in {
+        LayoutType.FACECAM_SPLIT.value,
+        LayoutType.FACECAM_QUARTER.value,
+    }
 
 
 @dataclass

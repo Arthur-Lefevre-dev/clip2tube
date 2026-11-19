@@ -26,7 +26,7 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt
 
 from app.db import Database
-from app.ui.main_window import MainWindow
+from app.ui.main_window import MainWindow, load_app_icon
 from app.ui.theme import apply_theme
 from app.utils.config import load_config
 from app.utils.paths import ensure_dirs
@@ -45,6 +45,7 @@ def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("Clip2Tube")
     app.setOrganizationName("Clip2Tube")
+    app.setWindowIcon(load_app_icon())
     app.setQuitOnLastWindowClosed(False)  # keep alive for system tray
     apply_theme(app)
 

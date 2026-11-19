@@ -19,6 +19,25 @@ def get_app_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def get_resource_root() -> Path:
+    """
+    Root for bundled read-only assets (icons, etc.).
+
+    In a PyInstaller build this is ``_MEIPASS``; otherwise the repo root.
+    """
+    if getattr(sys, "frozen", False):
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            return Path(meipass)
+        return Path(sys.executable).resolve().parent / "_internal"
+    return get_app_root()
+
+
+def get_asset_path(*parts: str) -> Path:
+    """Path to a file under ``assets/`` (works in repo and frozen exe)."""
+    return get_resource_root().joinpath("assets", *parts)
+
+
 def get_config_dir() -> Path:
     """Directory that holds config.json and credentials."""
     return get_app_root() / "config"

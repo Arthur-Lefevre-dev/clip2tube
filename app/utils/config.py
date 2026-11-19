@@ -26,6 +26,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "interval_hours": 6,
         "max_publications_per_day": 5,
     },
+    "updates": {
+        "check_on_startup": True,
+        "github_repo": "Arthur-Lefevre-dev/clip2tube",
+    },
     "defaults": {
         "layout": "blur_center",
         "facecam_region": {

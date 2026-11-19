@@ -21,15 +21,21 @@ COLORS = {
 }
 
 STYLESHEET = f"""
+/* Do NOT paint an opaque background on every QWidget — that creates
+   black rectangles behind labels inside cards/hero. */
 QWidget {{
-    background-color: {COLORS["bg"]};
     color: {COLORS["text"]};
     font-family: "Segoe UI", "Arial", sans-serif;
     font-size: 15px;
+    background-color: transparent;
 }}
 
-QMainWindow, QDialog {{
+QMainWindow, QDialog, QStackedWidget {{
     background-color: {COLORS["bg"]};
+}}
+
+QLabel {{
+    background-color: transparent;
 }}
 
 QMenuBar {{
@@ -49,28 +55,57 @@ QMenuBar::item:selected {{
 }}
 
 #BrandLabel {{
-    font-size: 22px;
+    font-size: 18px;
     font-weight: 800;
     color: {COLORS["text"]};
-    padding: 8px 10px 0 10px;
+    padding: 0;
+    background-color: transparent;
 }}
 
 #BrandSub {{
-    font-size: 13px;
+    font-size: 12px;
     color: {COLORS["text_muted"]};
-    padding: 2px 10px 16px 10px;
+    padding: 0;
+    background-color: transparent;
+}}
+
+#BrandIcon {{
+    background-color: transparent;
+    border: none;
+}}
+
+#NavGroup {{
+    background-color: {COLORS["bg"]};
+    border: 1px solid {COLORS["border"]};
+    border-radius: 14px;
+}}
+
+#NavSection {{
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    color: {COLORS["text_muted"]};
+    padding: 4px 6px 6px 6px;
+    background-color: transparent;
+}}
+
+#NavFooter {{
+    font-size: 12px;
+    color: {COLORS["text_muted"]};
+    padding: 10px 8px 4px 8px;
+    background-color: transparent;
 }}
 
 QPushButton#NavButton {{
     background-color: transparent;
     border: none;
-    border-radius: 12px;
+    border-radius: 10px;
     text-align: left;
-    padding: 14px 16px;
+    padding: 11px 14px;
     color: {COLORS["text_muted"]};
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
-    min-height: 22px;
+    min-height: 18px;
 }}
 
 QPushButton#NavButton:hover {{
@@ -84,7 +119,8 @@ QPushButton#NavButton[active="true"] {{
 }}
 
 QPushButton#NavButton[step="true"] {{
-    font-size: 15px;
+    font-size: 14px;
+    font-weight: 700;
 }}
 
 /* Headers */
@@ -100,20 +136,31 @@ QPushButton#NavButton[step="true"] {{
     line-height: 1.4;
 }}
 
-#StepBadge {{
-    background-color: {COLORS["accent"]};
-    color: white;
-    border-radius: 16px;
-    padding: 6px 14px;
-    font-weight: 700;
-    font-size: 14px;
-}}
-
 #HelpCard {{
     background-color: {COLORS["surface"]};
     border: 1px solid {COLORS["border"]};
     border-radius: 16px;
     padding: 18px;
+}}
+
+#HomeHero {{
+    background-color: {COLORS["surface"]};
+    border: 1px solid {COLORS["border"]};
+    border-radius: 20px;
+}}
+
+#HomeEyebrow {{
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: {COLORS["accent_hover"]};
+}}
+
+#HomeSectionTitle {{
+    font-size: 18px;
+    font-weight: 760;
+    color: {COLORS["text"]};
 }}
 
 #HomeCard {{
@@ -130,6 +177,101 @@ QPushButton#NavButton[step="true"] {{
 #HomeCardBody {{
     font-size: 14px;
     color: {COLORS["text_muted"]};
+}}
+
+QLabel#EmptyHint {{
+    font-size: 14px;
+    color: {COLORS["text_muted"]};
+    padding: 28px 12px;
+    background-color: {COLORS["surface_alt"]};
+    border: 1px dashed {COLORS["border"]};
+    border-radius: 12px;
+}}
+
+QLabel#StreamerCount {{
+    font-size: 13px;
+    font-weight: 700;
+    color: {COLORS["accent_hover"]};
+    background-color: {COLORS["nav_active"]};
+    border-radius: 10px;
+    padding: 4px 10px;
+}}
+
+QLabel#StepBadge {{
+    background-color: {COLORS["accent"]};
+    color: white;
+    border-radius: 16px;
+    padding: 6px 14px;
+    font-weight: 700;
+    font-size: 14px;
+}}
+
+#ProcessCard {{
+    background-color: {COLORS["surface"]};
+    border: 1px solid {COLORS["border"]};
+    border-radius: 16px;
+}}
+
+#ProcessCardTitle {{
+    font-size: 15px;
+    font-weight: 760;
+    color: {COLORS["text"]};
+    background-color: transparent;
+}}
+
+#ProcessHint {{
+    font-size: 13px;
+    color: {COLORS["text_muted"]};
+    background-color: transparent;
+}}
+
+#PreviewShell {{
+    background-color: {COLORS["surface"]};
+    border: 1px solid {COLORS["border"]};
+    border-radius: 20px;
+}}
+
+#PreviewPhone {{
+    background-color: #0a0c10;
+    border: 2px solid {COLORS["border"]};
+    border-radius: 18px;
+}}
+
+#PreviewEmpty {{
+    font-size: 14px;
+    color: {COLORS["text_muted"]};
+    background-color: transparent;
+}}
+
+#ClipCountBadge {{
+    font-size: 12px;
+    font-weight: 700;
+    color: {COLORS["accent_hover"]};
+    background-color: {COLORS["nav_active"]};
+    border-radius: 10px;
+    padding: 4px 10px;
+}}
+
+QToolButton#LayoutChoice {{
+    background-color: {COLORS["surface_alt"]};
+    color: {COLORS["text"]};
+    border: 2px solid {COLORS["border"]};
+    border-radius: 6px;
+    padding: 10px 8px 12px 8px;
+    font-size: 12px;
+    font-weight: 700;
+}}
+
+QToolButton#LayoutChoice:hover {{
+    border-color: {COLORS["accent_hover"]};
+    background-color: {COLORS["surface"]};
+}}
+
+QToolButton#LayoutChoice:checked,
+QToolButton#LayoutChoice[selected="true"] {{
+    border: 2px solid {COLORS["accent"]};
+    background-color: {COLORS["nav_active"]};
+    color: {COLORS["accent_hover"]};
 }}
 
 #StatusOk {{
@@ -212,13 +354,130 @@ QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit, QPlainTextEdit {{
     min-height: 22px;
 }}
 
-QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QTextEdit:focus {{
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QTextEdit:focus {{
     border: 2px solid {COLORS["accent"]};
 }}
 
+QComboBox {{
+    padding-right: 36px;
+}}
+
 QComboBox::drop-down {{
+    subcontrol-origin: border;
+    subcontrol-position: center right;
+    width: 36px;
     border: none;
-    width: 32px;
+    border-left: 2px solid {COLORS["border"]};
+    background-color: {COLORS["surface_alt"]};
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
+}}
+
+QComboBox::drop-down:hover {{
+    background-color: {COLORS["border"]};
+}}
+
+QComboBox::down-arrow {{
+    image: url(__CHEVRON_DOWN__);
+    width: 12px;
+    height: 12px;
+}}
+
+/* Combo popup — same language as QMenu (rounded, inset items) */
+QComboBox QAbstractItemView {{
+    background-color: {COLORS["surface"]};
+    border: 2px solid {COLORS["border"]};
+    border-radius: 14px;
+    padding: 8px;
+    outline: 0;
+}}
+
+QComboBox QAbstractItemView::item {{
+    min-height: 30px;
+    margin: 3px 4px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    color: {COLORS["text"]};
+    background-color: transparent;
+}}
+
+QComboBox QAbstractItemView::item:hover {{
+    background-color: {COLORS["surface_alt"]};
+}}
+
+QComboBox QAbstractItemView::item:selected {{
+    background-color: {COLORS["nav_active"]};
+    color: {COLORS["accent_hover"]};
+}}
+
+/* Menus (File / Aide / tray) — inset items so fill never clips rounded frame */
+QMenu {{
+    background-color: {COLORS["surface"]};
+    border: 2px solid {COLORS["border"]};
+    border-radius: 14px;
+    padding: 8px;
+}}
+
+QMenu::item {{
+    margin: 3px 4px;
+    padding: 10px 18px;
+    border-radius: 8px;
+    color: {COLORS["text"]};
+    background-color: transparent;
+}}
+
+QMenu::item:selected {{
+    background-color: {COLORS["nav_active"]};
+    color: {COLORS["accent_hover"]};
+}}
+
+QMenu::separator {{
+    height: 1px;
+    background: {COLORS["border"]};
+    margin: 8px 12px;
+}}
+
+/* Classic spin box: value left, +/− stacked on the right */
+QSpinBox, QDoubleSpinBox {{
+    color: {COLORS["text"]};
+    padding-right: 38px;
+}}
+
+QSpinBox::up-button, QDoubleSpinBox::up-button {{
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 34px;
+    background-color: {COLORS["surface_alt"]};
+    border: none;
+    border-left: 2px solid {COLORS["border"]};
+    border-top-right-radius: 10px;
+}}
+
+QSpinBox::down-button, QDoubleSpinBox::down-button {{
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    width: 34px;
+    background-color: {COLORS["surface_alt"]};
+    border: none;
+    border-left: 2px solid {COLORS["border"]};
+    border-bottom-right-radius: 10px;
+}}
+
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
+QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
+    background-color: {COLORS["accent"]};
+}}
+
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{
+    image: url(__SPIN_PLUS__);
+    width: 14px;
+    height: 14px;
+}}
+
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
+    image: url(__SPIN_MINUS__);
+    width: 14px;
+    height: 14px;
 }}
 
 QListWidget, QTreeWidget, QTableWidget {{
@@ -317,12 +576,20 @@ QGroupBox::title {{
 }}
 
 QScrollArea {{
-    background: transparent;
+    background-color: transparent;
     border: none;
 }}
 
+QScrollArea > QWidget {{
+    background-color: transparent;
+}}
+
 QScrollArea > QWidget > QWidget {{
-    background: transparent;
+    background-color: transparent;
+}}
+
+QAbstractScrollArea::viewport {{
+    background-color: transparent;
 }}
 
 QLabel#LogLabel, QPlainTextEdit {{
@@ -338,6 +605,66 @@ QHeaderView::section {{
     font-weight: 700;
 }}
 """
+
+
+def style_spinbox(spin) -> None:
+    """Classic up/down buttons; icons come from the stylesheet PNGs."""
+    from PySide6.QtWidgets import QAbstractSpinBox
+
+    # UpDownArrows + PNG +/− (PlusMinus text is often invisible with QSS)
+    spin.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.UpDownArrows)
+
+
+def style_combo(combo) -> None:
+    """Popup styled like QMenu: one rounded frame, transparent OS chrome."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QFrame
+
+    view = combo.view()
+    view.setFrameShape(QFrame.Shape.NoFrame)
+    view.setSpacing(0)
+    original_show = combo.showPopup
+
+    def _show_popup() -> None:
+        original_show()
+        container = view.parentWidget()
+        if container is None:
+            return
+        # Hide the square OS frame; the item-view draws the rounded card
+        container.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        container.setStyleSheet("background: transparent; border: none;")
+
+    combo.showPopup = _show_popup  # type: ignore[method-assign]
+
+
+def style_menu(menu) -> None:
+    """Prevent selected-item fill from bleeding past rounded menu corners."""
+    from PySide6.QtCore import Qt
+
+    menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+
+
+def _qss_url(path) -> str:
+    """Quoted absolute path for Qt stylesheet url(...)."""
+    return '"' + path.resolve().as_posix() + '"'
+
+
+def _stylesheet_with_assets() -> str:
+    """Resolve icon paths inside the QSS."""
+    from app.utils.paths import get_asset_path
+
+    css = STYLESHEET
+    replacements = {
+        "__CHEVRON_DOWN__": get_asset_path("chevron_down.png"),
+        "__SPIN_PLUS__": get_asset_path("spin_plus.png"),
+        "__SPIN_MINUS__": get_asset_path("spin_minus.png"),
+    }
+    for token, path in replacements.items():
+        if path.is_file():
+            css = css.replace(token, _qss_url(path))
+        else:
+            css = css.replace(f"image: url({token});", "/* asset missing */")
+    return css
 
 
 def apply_theme(app: QApplication) -> None:
@@ -356,4 +683,4 @@ def apply_theme(app: QApplication) -> None:
     palette.setColor(QPalette.ColorRole.ToolTipText, QColor(COLORS["text"]))
     app.setPalette(palette)
     app.setStyle("Fusion")
-    app.setStyleSheet(STYLESHEET)
+    app.setStyleSheet(_stylesheet_with_assets())

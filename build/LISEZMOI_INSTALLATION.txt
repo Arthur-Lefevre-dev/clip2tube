@@ -24,6 +24,14 @@ INTERNET
 - Première utilisation des sous-titres : télécharge le modèle Whisper
   (une seule fois, puis hors-ligne possible pour cette partie)
 - Recherche Twitch / publication YouTube : internet requis
+- Mises à jour : Aide → « Vérifier les mises à jour » (GitHub Releases)
+
+MISES À JOUR
+------------
+1. Téléchargez le nouveau Clip2Tube-Portable.zip
+2. Fermez Clip2Tube
+3. Remplacez les fichiers de l'appli
+4. GARDEZ vos dossiers config\ et data\ (clés + historique)
 
 IMPORTANT
 ---------

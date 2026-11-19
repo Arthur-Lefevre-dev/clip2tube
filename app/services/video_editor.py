@@ -88,6 +88,8 @@ class VideoEditorService:
             )
         elif layout == LayoutType.FACECAM_SPLIT:
             video_graph = self._facecam_graph(facecam_region)
+        elif layout == LayoutType.FACECAM_QUARTER:
+            video_graph = self._facecam_quarter_graph(facecam_region)
         else:
             video_graph = (
                 f"[0:v]scale={W}:-2:force_original_aspect_ratio=decrease,"
@@ -187,4 +189,28 @@ class VideoEditorService:
             f"crop={cam_w}:{cam_h},setsar=1[pip];"
             # Overlay cam on top-left of gameplay
             f"[bg][pip]overlay=0:0"
+        )
+
+    def _facecam_quarter_graph(self, region: FacecamRegion | None) -> str:
+        """
+        Stacked Shorts layout: webcam top 1/4, gameplay bottom 3/4.
+        Uses the same facecam crop region for the cam strip.
+        """
+        r = (region or FacecamRegion()).clamped()
+        cam_h = H // 4
+        game_h = H - cam_h
+        cam_h -= cam_h % 2
+        game_h -= game_h % 2
+
+        cam_crop = (
+            f"crop=iw*{r.w:.6f}:ih*{r.h:.6f}:iw*{r.x:.6f}:ih*{r.y:.6f}"
+        )
+        return (
+            f"[0:v]split=2[cam][game];"
+            f"[cam]{cam_crop},"
+            f"scale={W}:{cam_h}:force_original_aspect_ratio=increase,"
+            f"crop={W}:{cam_h},setsar=1[top];"
+            f"[game]scale={W}:{game_h}:force_original_aspect_ratio=increase,"
+            f"crop={W}:{game_h},setsar=1,fps={FPS},format=yuv420p[bot];"
+            f"[top][bot]vstack=inputs=2"
         )

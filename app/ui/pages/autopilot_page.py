@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.ui.theme import style_spinbox
 from app.utils.config import save_config
 
 
@@ -57,12 +58,14 @@ class AutopilotPage(QWidget):
         box = QGroupBox("Réglages")
         form = QFormLayout(box)
         self.interval_spin = QSpinBox()
+        style_spinbox(self.interval_spin)
         self.interval_spin.setRange(1, 168)
         self.interval_spin.setSuffix(" h")
         self.interval_spin.setValue(6)
         form.addRow("Intervalle", self.interval_spin)
 
         self.limit_spin = QSpinBox()
+        style_spinbox(self.limit_spin)
         self.limit_spin.setRange(1, 50)
         self.limit_spin.setValue(5)
         form.addRow("Max publications / jour", self.limit_spin)

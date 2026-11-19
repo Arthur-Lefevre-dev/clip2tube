@@ -86,6 +86,31 @@ Double-clic sur `Lancer_Clip2Tube.bat` ou `Clip2Tube.exe`.
 
 > Premier usage des sous-titres : télécharge le modèle Whisper (internet, une fois).
 
+## Mises à jour en ligne
+
+L’app vérifie les **GitHub Releases** du dépôt `Arthur-Lefevre-dev/clip2tube` (configurable dans Réglages).
+
+### Côté utilisateur
+
+- **Aide → Vérifier les mises à jour…**
+- ou **Réglages → Vérifier les mises à jour maintenant**
+- Au démarrage si « Vérifier au démarrage » est coché
+
+Si une version plus récente existe, un dialogue propose d’ouvrir la page de téléchargement. Remplacez le dossier portable en **gardant** `config/` et `data/`.
+
+### Côté développeur (pour que ça marche)
+
+1. Montez `__version__` dans `app/__init__.py` (ex. `1.0.1`)
+2. Rebuild le portable : `powershell -ExecutionPolicy Bypass -File .\build\build_exe.ps1`
+3. Sur GitHub → **Releases → Draft a new release**
+   - Tag : `v1.0.1` (même numéro que `__version__`, avec le `v`)
+   - Titre : `Clip2Tube 1.0.1`
+   - Joignez `dist\Clip2Tube-Portable.zip` (nom recommandé)
+   - Publiez la release (**Latest**)
+4. Les clients avec une version inférieure verront la mise à jour
+
+Sans aucune Release publiée, l’app indique qu’aucune release n’existe — ce n’est pas un bug.
+
 ## Structure
 
 ```

@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt, Signal, QSize, QUrl
 from PySide6.QtGui import QPixmap
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QHBoxLayout,
     QLabel,
@@ -22,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.models import Clip
+from app.ui.theme import style_spinbox
 from app.ui.workers import SearchClipsWorker
 
 
@@ -29,19 +31,23 @@ class ClipsPage(QWidget):
     clips_selected = Signal(list)
     log_requested = Signal(str)
     go_settings = Signal()
+    go_home = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._twitch = None
         self._db = None
+        self._config = None
         self._worker: Optional[SearchClipsWorker] = None
         self._clips: list[Clip] = []
         self._net = QNetworkAccessManager(self)
         self._build()
 
-    def bind(self, twitch, database) -> None:
+    def bind(self, twitch, database, config=None) -> None:
         self._twitch = twitch
         self._db = database
+        self._config = config
+        self._refresh_followed_label()
 
     def _build(self) -> None:
         root = QVBoxLayout(self)
@@ -86,12 +92,25 @@ class ClipsPage(QWidget):
         row.addWidget(self.period_combo)
         root.addLayout(row)
 
+        follow_row = QHBoxLayout()
+        self.followed_check = QCheckBox("Chercher dans les streamers que je suis")
+        self.followed_check.setToolTip(
+            "Parcourt la liste de l’Accueil (streamers suivis) au lieu d’un seul nom."
+        )
+        self.followed_check.toggled.connect(self._on_followed_toggled)
+        follow_row.addWidget(self.followed_check)
+        self.followed_hint = QLabel("")
+        self.followed_hint.setObjectName("PageSubtitle")
+        follow_row.addWidget(self.followed_hint, stretch=1)
+        root.addLayout(follow_row)
+
         row2 = QHBoxLayout()
         count_lbl = QLabel("Nombre de clips :")
         count_lbl.setObjectName("PageSubtitle")
         row2.addWidget(count_lbl)
 
         self.max_spin = QSpinBox()
+        style_spinbox(self.max_spin)
         self.max_spin.setRange(1, 500)
         self.max_spin.setValue(100)
         self.max_spin.setSingleStep(10)
@@ -164,12 +183,33 @@ class ClipsPage(QWidget):
                 self.go_settings.emit()
             return
 
+        use_followed = self.followed_check.isChecked()
+        streamers = self._followed_streamers() if use_followed else []
         query = self.query_edit.text().strip()
-        if not query:
+
+        if use_followed and not streamers:
+            box = QMessageBox(self)
+            box.setIcon(QMessageBox.Icon.Information)
+            box.setWindowTitle("Aucun streamer suivi")
+            box.setText(
+                "Ajoutez d’abord des streamers sur l’Accueil "
+                "(« Streamers que je suis »), puis revenez ici."
+            )
+            box.setStandardButtons(
+                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Open
+            )
+            open_btn = box.button(QMessageBox.StandardButton.Open)
+            open_btn.setText("Aller à l’Accueil")
+            if box.exec() == QMessageBox.StandardButton.Open:
+                self.go_home.emit()
+            return
+
+        if not use_followed and not query:
             QMessageBox.information(
                 self,
                 "Nom manquant",
-                "Écrivez le nom d’un streamer, par exemple : xQc",
+                "Écrivez le nom d’un streamer, par exemple : xQc\n"
+                "— ou cochez « Chercher dans les streamers que je suis ».",
             )
             return
         if self._worker and self._worker.isRunning():
@@ -183,12 +223,54 @@ class ClipsPage(QWidget):
             period=self.period_combo.currentData(),
             max_clips=self.max_spin.value(),
             max_duration=60.0,
-            is_game=self.mode_combo.currentData() == "game",
+            is_game=(
+                False
+                if use_followed
+                else self.mode_combo.currentData() == "game"
+            ),
+            streamers=streamers if use_followed else None,
         )
         self._worker.finished_ok.connect(self._on_results)
         self._worker.failed.connect(self._on_error)
         self._worker.progress.connect(lambda m: self.status_label.setText(m))
         self._worker.start()
+
+    def _followed_streamers(self) -> list[str]:
+        if not self._config:
+            return []
+        raw = self._config.get("followed_streamers", default=[]) or []
+        out: list[str] = []
+        seen: set[str] = set()
+        for item in raw:
+            login = str(item).strip().lstrip("@").lower()
+            if login and login not in seen:
+                seen.add(login)
+                out.append(login)
+        return out
+
+    def _refresh_followed_label(self) -> None:
+        n = len(self._followed_streamers())
+        if n:
+            self.followed_hint.setText(f"({n} dans votre liste)")
+        else:
+            self.followed_hint.setText("(liste vide — ajoutez-en sur l’Accueil)")
+
+    def _on_followed_toggled(self, checked: bool) -> None:
+        self._refresh_followed_label()
+        self.query_edit.setEnabled(not checked)
+        self.mode_combo.setEnabled(not checked)
+        if checked:
+            self.query_edit.setPlaceholderText(
+                "Inutile — recherche sur vos streamers suivis"
+            )
+        else:
+            self.query_edit.setPlaceholderText(
+                "Nom du streamer, ou collez son lien Twitch…"
+            )
+
+    def refresh(self) -> None:
+        """Called when the page is shown — refresh followed count."""
+        self._refresh_followed_label()
 
     def _on_results(self, clips: list) -> None:
         self.search_btn.setEnabled(True)
