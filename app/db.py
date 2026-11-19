@@ -163,6 +163,9 @@ class Database:
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )
                 ON CONFLICT(id) DO UPDATE SET
+                    clip_title=excluded.clip_title,
+                    streamer=excluded.streamer,
+                    game_name=excluded.game_name,
                     status=excluded.status,
                     layout=excluded.layout,
                     output_path=excluded.output_path,
@@ -224,6 +227,11 @@ class Database:
     def delete_job(self, job_id: str) -> None:
         with self._lock:
             self.connect().execute("DELETE FROM jobs WHERE id = ?", (job_id,))
+
+    def delete_all_jobs(self) -> int:
+        with self._lock:
+            cur = self.connect().execute("DELETE FROM jobs")
+            return int(cur.rowcount or 0)
 
     def _row_to_job(self, row: sqlite3.Row) -> Job:
         keys = row.keys()

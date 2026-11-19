@@ -12,15 +12,19 @@ from PySide6.QtCore import Qt, Signal, QSize, QThread
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
     QDateTimeEdit,
     QDialog,
     QDialogButtonBox,
+    QFormLayout,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
     QPushButton,
+    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -112,8 +116,8 @@ class QueuePage(QWidget):
         root.addWidget(title)
 
         sub = QLabel(
-            "Retrouvez vos montages, ouvrez-les, puis publiez sur YouTube "
-            "ou programmez une date."
+            "Gérez vos montages : modifier les infos, supprimer, ouvrir, "
+            "planifier ou publier sur YouTube."
         )
         sub.setObjectName("PageSubtitle")
         sub.setWordWrap(True)
@@ -125,6 +129,10 @@ class QueuePage(QWidget):
         refresh.setObjectName("SecondaryButton")
         refresh.clicked.connect(self.refresh)
         tools.addWidget(refresh)
+        self.clear_btn = QPushButton("Tout vider")
+        self.clear_btn.setObjectName("SecondaryButton")
+        self.clear_btn.clicked.connect(self._clear_all)
+        tools.addWidget(self.clear_btn)
         tools.addStretch(1)
         self.count_label = QLabel("")
         self.count_label.setObjectName("PageSubtitle")
@@ -141,6 +149,7 @@ class QueuePage(QWidget):
             QAbstractItemView.SelectionMode.SingleSelection
         )
         self.list_widget.currentItemChanged.connect(self._on_selection)
+        self.list_widget.itemDoubleClicked.connect(lambda _i: self._edit_selected())
         root.addWidget(self.list_widget, stretch=1)
 
         self.empty = QLabel(
@@ -151,6 +160,19 @@ class QueuePage(QWidget):
         self.empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty.setWordWrap(True)
         root.addWidget(self.empty)
+
+        crud = QHBoxLayout()
+        crud.setSpacing(8)
+        self.edit_btn = QPushButton("Modifier")
+        self.edit_btn.setObjectName("SecondaryButton")
+        self.edit_btn.clicked.connect(self._edit_selected)
+        self.delete_btn = QPushButton("Supprimer")
+        self.delete_btn.setObjectName("DangerButton")
+        self.delete_btn.clicked.connect(self._delete_selected)
+        crud.addWidget(self.edit_btn)
+        crud.addWidget(self.delete_btn)
+        crud.addStretch(1)
+        root.addLayout(crud)
 
         actions = QHBoxLayout()
         actions.setSpacing(8)
@@ -242,11 +264,14 @@ class QueuePage(QWidget):
         self._set_actions_enabled(bool(job), has_file=has_file)
 
     def _set_actions_enabled(self, has_job: bool, has_file: bool = False) -> None:
+        self.edit_btn.setEnabled(has_job)
+        self.delete_btn.setEnabled(has_job)
         self.open_btn.setEnabled(has_file)
         self.folder_btn.setEnabled(has_file)
         self.retry_btn.setEnabled(has_job)
         self.schedule_btn.setEnabled(has_file)
         self.publish_btn.setEnabled(has_file)
+        self.clear_btn.setEnabled(bool(self._jobs))
 
     def _selected_job(self) -> Optional[Job]:
         item = self.list_widget.currentItem()
@@ -256,6 +281,132 @@ class QueuePage(QWidget):
         if not job_id:
             return None
         return self._db.get_job(str(job_id))
+
+    def _edit_selected(self) -> None:
+        job = self._selected_job()
+        if not job or not self._db:
+            QMessageBox.information(
+                self, "Modifier", "Sélectionnez d’abord une vidéo."
+            )
+            return
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Modifier la vidéo")
+        dlg.resize(480, 420)
+        lay = QVBoxLayout(dlg)
+        lay.setSpacing(12)
+        form = QFormLayout()
+        form.setSpacing(10)
+
+        title_edit = QLineEdit(job.clip_title)
+        streamer_edit = QLineEdit(job.streamer)
+        yt_title = QLineEdit(job.youtube_title or job.clip_title)
+        yt_desc = QTextEdit()
+        yt_desc.setPlainText(job.youtube_description or "")
+        yt_desc.setMinimumHeight(100)
+        tt_cap = QLineEdit(job.tiktok_caption or "")
+        form.addRow("Titre", title_edit)
+        form.addRow("Streamer", streamer_edit)
+        form.addRow("Titre YouTube", yt_title)
+        form.addRow("Description YT", yt_desc)
+        form.addRow("Légende TikTok", tt_cap)
+        lay.addLayout(form)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.button(QDialogButtonBox.StandardButton.Save).setText("Enregistrer")
+        buttons.accepted.connect(dlg.accept)
+        buttons.rejected.connect(dlg.reject)
+        lay.addWidget(buttons)
+
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        new_title = title_edit.text().strip()
+        if not new_title:
+            QMessageBox.warning(self, "Modifier", "Le titre ne peut pas être vide.")
+            return
+        job.clip_title = new_title
+        job.streamer = streamer_edit.text().strip() or job.streamer
+        job.youtube_title = yt_title.text().strip()
+        job.youtube_description = yt_desc.toPlainText().strip()
+        job.tiktok_caption = tt_cap.text().strip()
+        self._db.upsert_job(job)
+        self.refresh()
+        self.log_requested.emit(f"Vidéo modifiée : {job.clip_title}")
+
+    def _delete_selected(self) -> None:
+        job = self._selected_job()
+        if not job or not self._db:
+            QMessageBox.information(
+                self, "Supprimer", "Sélectionnez d’abord une vidéo."
+            )
+            return
+
+        path = Path(job.output_path) if job.output_path else None
+        has_file = bool(path and path.exists())
+
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setWindowTitle("Supprimer")
+        box.setText(f"Supprimer « {job.clip_title} » de la liste ?")
+        delete_file = QCheckBox("Supprimer aussi le fichier vidéo sur le disque")
+        delete_file.setChecked(False)
+        delete_file.setEnabled(has_file)
+        if has_file:
+            box.setInformativeText(str(path))
+        box.setCheckBox(delete_file)
+        box.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        box.setDefaultButton(QMessageBox.StandardButton.No)
+        if box.exec() != QMessageBox.StandardButton.Yes:
+            return
+
+        if delete_file.isChecked() and path and path.exists():
+            try:
+                path.unlink()
+            except OSError as exc:
+                QMessageBox.warning(
+                    self,
+                    "Fichier",
+                    f"Entrée retirée, mais le fichier n’a pas pu être effacé :\n{exc}",
+                )
+            # Related renders for same job id
+            for suffix in ("_vertical.mp4", "_final.mp4"):
+                sibling = path.parent / f"{job.id}{suffix}"
+                if sibling.exists() and sibling != path:
+                    try:
+                        sibling.unlink()
+                    except OSError:
+                        pass
+            thumb = get_app_root() / "temp" / f"jobthumb_{job.id}.jpg"
+            try:
+                thumb.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+        self._db.delete_job(job.id)
+        self.refresh()
+        self.log_requested.emit(f"Vidéo supprimée : {job.clip_title}")
+
+    def _clear_all(self) -> None:
+        if not self._db or not self._jobs:
+            return
+        reply = QMessageBox.question(
+            self,
+            "Tout vider",
+            f"Supprimer les {len(self._jobs)} entrée(s) de « Mes vidéos » ?\n"
+            "(Les fichiers sur le disque ne sont pas effacés.)",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        n = self._db.delete_all_jobs()
+        self.refresh()
+        self.log_requested.emit(f"Liste vidéos vidée ({n})")
 
     def _retry_selected(self) -> None:
         job = self._selected_job()
